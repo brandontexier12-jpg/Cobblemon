@@ -1,0 +1,48 @@
+# Dépannage et diagnostic
+
+## Commandes utiles (SSH sur le NAS, dans le dossier du projet)
+
+```bash
+docker ps --filter name=darts-evolution                 # état (Up … (healthy))
+docker compose logs --tail 200 -f                        # journaux en direct
+docker inspect --format '{{json .State.Health}}' darts-evolution   # détail du contrôle de santé
+curl -s http://localhost:8080/api/health                 # santé de l'API (status, base, version, Autodarts)
+docker stats darts-evolution --no-stream                 # mémoire / processeur
+docker compose restart                                   # redémarrage
+docker compose up -d --build                             # reconstruction après mise à jour
+docker exec darts-evolution node -e "fetch('http://192.168.1.50:3180/api/version').then(r=>r.text()).then(console.log)"   # le conteneur joint-il Autodarts ?
+```
+
+Plus de détails dans les journaux : `LOG_LEVEL=debug` dans `.env`, puis `docker compose up -d`.
+
+## Problèmes fréquents
+
+| Symptôme | Cause probable | Solution |
+|---|---|---|
+| La page ne s'ouvre pas | Port différent, conteneur arrêté | `docker ps` ; vérifier `APP_PORT` ; ouvrir `http://IP_DU_NAS:APP_PORT` |
+| Conteneur « unhealthy » | Base inaccessible, droits | Journaux ; vérifier `PUID`/`PGID` et les droits de `data/` |
+| `EACCES` / permission refusée dans les journaux | Dossiers créés par un autre utilisateur | Ajuster `PUID`/`PGID` (le conteneur corrige les droits au démarrage) |
+| Port déjà utilisé | Une autre application utilise 8080 | Changer `APP_PORT` (ex. 8090) |
+| Autodarts « Connexion refusée » | Board Manager arrêté / mauvais port | Démarrer Autodarts ; port 3180 |
+| Autodarts « Délai dépassé » | Machine éteinte, autre réseau, pare-feu | `ping` depuis le NAS ; ouvrir le port 3180 |
+| Autodarts connecté mais aucun impact | Détection arrêtée, partie non liée, saisie manuelle active, ou lancers non transmis (v2) | Page Intégration : avertissements et journal |
+| Impacts ignorés « en attente du retrait » | Fléchettes lancées après une visite terminée | Retirer les fléchettes avant de lancer |
+| Écran figé sur un appareil | Connexion temps réel perdue | Le bandeau rouge l'indique ; la reconnexion est automatique, sinon recharger la page |
+| « La partie a été modifiée depuis un autre appareil » | Deux appareils ont validé en même temps | L'affichage est actualisé ; recommencer l'action si nécessaire |
+| Mot de passe administrateur oublié | — | Modifier `ADMIN_PASSWORD` dans `.env`, puis `docker compose up -d` |
+
+## Santé de l'API
+
+`GET /api/health` renvoie par exemple :
+
+```json
+{"status":"ok","version":"1.0.0","uptimeSeconds":3600,"database":"ok","schemaVersion":1,"autodarts":"connected"}
+```
+
+`status` vaut `degraded` (code HTTP 503) si la base SQLite ne répond plus.
+
+## Récupérer les données à la main
+
+La base est un fichier SQLite standard (`data/darts-evolution.db`) : elle peut être ouverte avec
+« DB Browser for SQLite » sur un ordinateur (copie, application arrêtée de préférence). Les exports JSON
+et CSV de Paramètres → Exports ne nécessitent aucun outil.

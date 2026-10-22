@@ -41,7 +41,7 @@ export async function startTestApp(extraEnv: Record<string, string> = {}, existi
     async json(method, url, body, headers) {
       const res = await request(method, url, body, headers);
       if (res.statusCode >= 400) throw new Error(`${method} ${url} → ${res.statusCode} ${res.body}`);
-      return res.body ? res.json() : undefined;
+      return (res.body ? res.json() : undefined) as never;
     },
     async close() {
       await built.close();

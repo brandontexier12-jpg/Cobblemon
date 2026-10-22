@@ -1,0 +1,45 @@
+# DARTS EVOLUTION — configuration Docker Compose (Docker Manager TerraMaster ou docker compose).
+# Les valeurs proviennent du fichier .env placé à côté (copie de .env.example).
+name: darts-evolution
+
+services:
+  darts-evolution:
+    image: darts-evolution:1.0.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        RUN_TESTS: "${RUN_TESTS:-true}"
+    container_name: darts-evolution
+    restart: unless-stopped
+    # Petit processus init (relais des signaux) fourni par Docker.
+    init: true
+    ports:
+      # Port d'accès depuis le réseau local : http://IP_DU_NAS:APP_PORT
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      TZ: "${TZ:-Europe/Paris}"
+      PUID: "${PUID:-1000}"
+      PGID: "${PGID:-1000}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
+      BACKUP_INTERVAL_HOURS: "${BACKUP_INTERVAL_HOURS:-24}"
+      BACKUP_RETENTION: "${BACKUP_RETENTION:-14}"
+      AUTODARTS_ENABLED: "${AUTODARTS_ENABLED:-false}"
+      AUTODARTS_HOST: "${AUTODARTS_HOST:-}"
+      AUTODARTS_PORT: "${AUTODARTS_PORT:-3180}"
+      AUTODARTS_PROTOCOL: "${AUTODARTS_PROTOCOL:-http}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+    volumes:
+      # Base de données et sauvegardes : conservées lors des mises à jour et redémarrages.
+      - ./data:/app/data
+      - ./backups:/app/backups
+    # Ressources raisonnables pour un NAS (l'application utilise typiquement 80 à 150 Mo).
+    mem_limit: 512m
+    cpus: 1.0
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,36 @@
+# Variante sans construction : à utiliser quand l'image darts-evolution:1.0.0 a été construite sur un
+# ordinateur puis importée dans Docker Manager (Images → Importer). Même configuration que docker-compose.yml.
+name: darts-evolution
+
+services:
+  darts-evolution:
+    image: darts-evolution:1.0.0
+    container_name: darts-evolution
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      TZ: "${TZ:-Europe/Paris}"
+      PUID: "${PUID:-1000}"
+      PGID: "${PGID:-1000}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
+      BACKUP_INTERVAL_HOURS: "${BACKUP_INTERVAL_HOURS:-24}"
+      BACKUP_RETENTION: "${BACKUP_RETENTION:-14}"
+      AUTODARTS_ENABLED: "${AUTODARTS_ENABLED:-false}"
+      AUTODARTS_HOST: "${AUTODARTS_HOST:-}"
+      AUTODARTS_PORT: "${AUTODARTS_PORT:-3180}"
+      AUTODARTS_PROTOCOL: "${AUTODARTS_PROTOCOL:-http}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/backups
+    mem_limit: 512m
+    cpus: 1.0
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

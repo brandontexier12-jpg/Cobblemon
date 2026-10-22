@@ -3,7 +3,7 @@ import path from "node:path";
 import fastifyCookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
 import type { AdapterLogger } from "@darts-evolution/autodarts-adapter";
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { LogController, type FastifyInstance } from "fastify";
 import type { Server as IoServer } from "socket.io";
 import { ZodError } from "zod";
 import type { AppConfig } from "./config.js";
@@ -59,7 +59,8 @@ export async function buildApp(config: AppConfig, options: { logger?: boolean } 
             redact: ["req.headers.cookie", "req.headers.authorization", 'res.headers["set-cookie"]'],
           },
     bodyLimit: 1024 * 1024,
-    disableRequestLogging: config.logLevel !== "debug" && config.logLevel !== "trace",
+    // Journal de chaque requête uniquement en mode debug (sinon trop bavard pour un NAS).
+    logController: new LogController({ disableRequestLogging: config.logLevel !== "debug" && config.logLevel !== "trace" }),
   });
 
   const log: AdapterLogger = {
