@@ -169,7 +169,7 @@ export async function buildApp(config: AppConfig, options: { logger?: boolean } 
   const webDist = config.webDistPath ?? path.resolve(process.cwd(), "apps/web/dist");
   const hasWeb = existsSync(path.join(webDist, "index.html"));
   if (hasWeb) {
-    await app.register(fastifyStatic, { root: webDist, wildcard: false, maxAge: "1h" });
+    await app.register(fastifyStatic, { root: webDist, maxAge: "1h" });
   }
   app.setNotFoundHandler((request, reply) => {
     if (request.method === "GET" && !request.url.startsWith("/api/") && !request.url.startsWith("/socket.io") && hasWeb) {

@@ -205,7 +205,7 @@ export const x01: ModeRules<X01Config, X01State> = {
     });
     const i = turn.playerIndex;
     let checkout = null;
-    if (!state.finished && !turn.complete && m.opened[i]) {
+    if (!state.finished && !turn.complete && m.opened[i] && (m.remaining[i] as number) <= 180) {
       const dartsLeft = 3 - turn.darts.length;
       const remaining = m.remaining[i] as number;
       const routes = suggestCheckouts(remaining, {
