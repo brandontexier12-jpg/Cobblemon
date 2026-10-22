@@ -85,6 +85,13 @@ Les tournois où vous n'êtes pas engagé sont simulés (« Pendant ce temps »)
    résultat n'est pas validé, le match peut encore être corrigé ; une fois validé, il ne peut plus l'être.
 4. Un match abandonné est simplement à rejouer.
 
+## Supprimer une carrière
+
+Icône corbeille sur la carte de la carrière (menu Carrière), ou bouton « Supprimer » dans son tableau de
+bord, puis confirmation. Pas besoin d'être connecté en administrateur : seule la carrière est supprimée
+(circuit, calendrier, classements, palmarès). Les matchs déjà joués restent dans l'historique et les
+statistiques ; un match de carrière encore en cours est abandonné.
+
 ## Simulation des autres matchs
 
 Pour chaque leg, le nombre de fléchettes nécessaires à chaque joueur est tiré d'une loi log-normale

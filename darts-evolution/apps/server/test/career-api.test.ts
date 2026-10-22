@@ -4,8 +4,8 @@ import { createPlayers, dart, removeDir, startTestApp, type TestApp } from "./he
 const FAST = { firstDartMs: 5, dartMs: 5, nextMs: 5, handOverMs: 10, undoPauseMs: 50, killerDrawMs: 0 };
 const apps: TestApp[] = [];
 
-async function open(): Promise<TestApp> {
-  const app = await startTestApp({}, undefined, { botTiming: FAST });
+async function open(env: Record<string, string> = {}): Promise<TestApp> {
+  const app = await startTestApp(env, undefined, { botTiming: FAST });
   app.built.ctx.bots.start();
   apps.push(app);
   return app;
@@ -106,7 +106,8 @@ describe("mode carrière (API)", () => {
   });
 
   it("abandon : le match est à rejouer ; classements, circuit renommable, palmarès, suppression", async () => {
-    const app = await open();
+    // Mot de passe administrateur configuré : la suppression d'une carrière reste possible sans connexion.
+    const app = await open({ ADMIN_PASSWORD: "secret-test" });
     const [alice] = await createPlayers(app, "Alice");
     const career = await app.json("POST", "/api/careers", { playerId: alice, difficulty: "pro", start: "tourcard", light: true });
     // Avec une Tour Card, la saison commence par les tournois du Pro Tour (le Q-School est simulé).
@@ -135,7 +136,11 @@ describe("mode carrière (API)", () => {
     const history = await app.json("GET", `/api/careers/${career.id}/history`);
     expect(history).toMatchObject({ titles: [], seasons: [] });
 
-    expect((await app.request("DELETE", `/api/careers/${career.id}`)).statusCode).toBe(204);
+    // Suppression : le match de carrière en cours est abandonné (il ne reste pas dans « Parties en cours »).
+    expect(await app.json("DELETE", `/api/careers/${career.id}`)).toEqual({ abandoned: 1 });
     expect((await app.json("GET", "/api/careers")).length).toBe(0);
+    expect((await app.json("GET", `/api/matches/${second.matchId}`)).match.status).toBe("abandoned");
+    expect((await app.json("GET", "/api/home")).active).toEqual([]);
+    expect((await app.request("GET", `/api/careers/${career.id}`)).statusCode).toBe(404);
   });
 });

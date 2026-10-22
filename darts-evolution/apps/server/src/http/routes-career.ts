@@ -1,21 +1,17 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { requireAdmin, type AppContext } from "../context.js";
+import type { AppContext } from "../context.js";
 
 const id = z.object({ id: z.string().uuid() });
 
 /** Mode carrière : création, déroulement, classements, circuit, palmarès. */
 export function registerCareerRoutes(app: FastifyInstance, ctx: AppContext): void {
-  const admin = requireAdmin(ctx);
-
   app.get("/api/careers", async () => ctx.careers.list());
   app.get("/api/careers/options", async () => ctx.careers.options());
   app.post("/api/careers", async (req, reply) => reply.code(201).send(ctx.careers.create(req.body)));
   app.get("/api/careers/:id", async (req) => ctx.careers.get(id.parse(req.params).id));
-  app.delete("/api/careers/:id", { preHandler: admin }, async (req, reply) => {
-    ctx.careers.delete(id.parse(req.params).id);
-    return reply.code(204).send();
-  });
+  // Suppression ouverte à tous (confirmée dans l'interface) : elle n'efface ni matchs ni statistiques.
+  app.delete("/api/careers/:id", async (req) => ctx.careers.delete(id.parse(req.params).id));
 
   /** Lance (ou retrouve) le match à jouer ; avec Autodarts, la partie est liée à la cible. */
   app.post("/api/careers/:id/play", async (req) => {

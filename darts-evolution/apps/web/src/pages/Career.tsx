@@ -130,6 +130,7 @@ function Name({ side, className = "" }: { side: { name: string; flag: string; hu
 export function CareersPage() {
   const list = useAsync(() => api.get<CareerListItem[]>("/api/careers"), []);
   const [creating, setCreating] = useState(false);
+  const remove = useDeleteCareer(list.reload);
   return (
     <div className="space-y-5">
       <PageHeader
@@ -157,21 +158,24 @@ export function CareersPage() {
       {creating && <CreateCareer onCancel={() => setCreating(false)} />}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {list.data?.map((c) => (
-          <Link key={c.id} to={`/carriere/${c.id}`} className="press rounded-2xl border border-ink-700 bg-ink-850 p-4 hover:border-ink-500">
-            <div className="flex items-center gap-2">
-              <Icon name="star" className="text-brand-500" />
-              <span className="font-display text-xl font-semibold">{c.name}</span>
-            </div>
-            <p className="mt-1 text-sm text-ink-300">
-              {c.playerName} · saison {c.season} · {c.difficulty} · sortie {c.outRule === "double" ? "double" : "simple"}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge tone={c.rank ? "brand" : "neutral"}>{c.rank ? `#${c.rank} Order of Merit` : "Non classé"}</Badge>
-              <Badge tone={c.card ? "good" : "warning"}>{c.card ? "Tour Card" : "Sans Tour Card"}</Badge>
-              {c.titles > 0 && <Badge tone="brand">🏆 {c.titles} titre(s)</Badge>}
-            </div>
-            <p className="mt-2 text-xs text-ink-400">Dernière partie : {fmtDateTime(c.updatedAt)}</p>
-          </Link>
+          <div key={c.id} className="relative">
+            <Link to={`/carriere/${c.id}`} className="press block h-full rounded-2xl border border-ink-700 bg-ink-850 p-4 pr-14 hover:border-ink-500">
+              <div className="flex items-center gap-2">
+                <Icon name="star" className="text-brand-500" />
+                <span className="font-display text-xl font-semibold">{c.name}</span>
+              </div>
+              <p className="mt-1 text-sm text-ink-300">
+                {c.playerName} · saison {c.season} · {c.difficulty} · sortie {c.outRule === "double" ? "double" : "simple"}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Badge tone={c.rank ? "brand" : "neutral"}>{c.rank ? `#${c.rank} Order of Merit` : "Non classé"}</Badge>
+                <Badge tone={c.card ? "good" : "warning"}>{c.card ? "Tour Card" : "Sans Tour Card"}</Badge>
+                {c.titles > 0 && <Badge tone="brand">🏆 {c.titles} titre(s)</Badge>}
+              </div>
+              <p className="mt-2 text-xs text-ink-400">Dernière partie : {fmtDateTime(c.updatedAt)}</p>
+            </Link>
+            <Button size="sm" variant="ghost" icon="trash" className="absolute right-2 top-2" aria-label={`Supprimer ${c.name}`} title="Supprimer cette carrière" onClick={() => void remove(c)} />
+          </div>
         ))}
       </div>
     </div>
@@ -314,6 +318,8 @@ export function CareerPage() {
   const { id = "" } = useParams();
   const career = useAsync(() => api.get<CareerView>(`/api/careers/${id}`), [id]);
   const [tab, setTab] = useState<Tab>("tournoi");
+  const navigate = useNavigate();
+  const remove = useDeleteCareer(() => navigate("/carriere"));
   if (career.error) return <ErrorBox message={career.error} onRetry={career.reload} />;
   if (!career.data) return <Spinner label="Chargement de la carrière…" />;
   const c = career.data;
@@ -323,11 +329,16 @@ export function CareerPage() {
         title={c.name}
         subtitle={`Saison ${c.season} · ${c.settings.difficultyLabel} · sortie ${c.settings.outRule === "double" ? "double" : "simple"} · matchs ${LENGTH_LABEL[c.settings.matchLength]}`}
         actions={
-          <Link to="/carriere">
-            <Button size="sm" variant="ghost" icon="back">
-              Carrières
+          <>
+            <Link to="/carriere">
+              <Button size="sm" variant="ghost" icon="back">
+                Carrières
+              </Button>
+            </Link>
+            <Button size="sm" variant="ghost" icon="trash" onClick={() => void remove(c)}>
+              Supprimer
             </Button>
-          </Link>
+          </>
         }
       />
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
@@ -369,7 +380,6 @@ export function CareerPage() {
       {tab === "classements" && <RankingsPanel careerId={c.id} />}
       {tab === "circuit" && <CircuitPanel careerId={c.id} />}
       {tab === "palmares" && <HistoryPanel careerId={c.id} />}
-      <DeleteCareer career={c} />
     </div>
   );
 }
@@ -870,26 +880,24 @@ function HistoryPanel({ careerId }: { careerId: string }) {
   );
 }
 
-function DeleteCareer({ career }: { career: CareerView }) {
-  const { auth } = useAppState();
+/** Suppression d'une carrière, après confirmation (depuis la liste ou le tableau de bord). */
+function useDeleteCareer(onDeleted: () => void) {
   const { confirm, toast } = useUi();
-  const navigate = useNavigate();
-  if (!auth.isAdmin) return null;
-  const remove = async () => {
-    if (!(await confirm({ title: `Supprimer « ${career.name} » ?`, message: "La carrière (circuit, classements, palmarès) est supprimée. Les matchs joués restent dans l'historique et les statistiques.", confirmLabel: "Supprimer", danger: true })))
-      return;
+  return async (career: { id: string; name: string }) => {
+    const ok = await confirm({
+      title: `Supprimer « ${career.name} » ?`,
+      message:
+        "La carrière (circuit, calendrier, classements, palmarès) est définitivement supprimée. Les matchs déjà joués restent dans l'historique et les statistiques ; un match de carrière en cours est abandonné.",
+      confirmLabel: "Supprimer la carrière",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.del(`/api/careers/${career.id}`);
-      navigate("/carriere");
+      toast(`Carrière « ${career.name} » supprimée.`, "good");
+      onDeleted();
     } catch (e) {
       toast((e as Error).message, "critical");
     }
   };
-  return (
-    <div className="text-right">
-      <button className="text-sm text-ink-400 underline-offset-2 hover:text-[#ff8f8f] hover:underline" onClick={remove}>
-        Supprimer cette carrière
-      </button>
-    </div>
-  );
 }

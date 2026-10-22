@@ -163,10 +163,16 @@ export class CareerService {
     return this.get(id);
   }
 
-  delete(id: string): void {
+  /**
+   * Supprime une carrière. Les matchs terminés restent dans l'historique et les statistiques du
+   * joueur ; un match encore en cours est abandonné, pour ne pas rester dans « Parties en cours ».
+   */
+  delete(id: string): { abandoned: number } {
     this.row(id);
-    // Les matchs joués restent dans l'historique et les statistiques du joueur.
+    const active = this.db.all<{ id: string }>("SELECT id FROM matches WHERE career_id = $c AND status = 'active'", { $c: id });
+    for (const m of active) this.matches.command(m.id, { kind: "abandon" });
     this.db.run("DELETE FROM careers WHERE id = $id", { $id: id });
+    return { abandoned: active.length };
   }
 
   // ---------- Déroulement ----------
