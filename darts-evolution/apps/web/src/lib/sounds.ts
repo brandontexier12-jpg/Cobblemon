@@ -192,6 +192,31 @@ export function playBust(): void {
   tone(c, { type: "square", from: 110, to: 55, duration: 0.55, volume: 0.08 });
 }
 
+/** Un joueur devient Killer : coup sourd puis sirène montante. */
+export function playKiller(): void {
+  const c = ready();
+  if (!c) return;
+  burst(c, { duration: 0.25, frequency: 120, q: 0.5, volume: 0.7 });
+  tone(c, { from: 55, to: 40, duration: 0.5, volume: 0.4 });
+  tone(c, { type: "sawtooth", from: 220, to: 880, duration: 0.7, start: 0.15, volume: 0.09 });
+  tone(c, { type: "square", from: 440, to: 1320, duration: 0.6, start: 0.3, volume: 0.05 });
+}
+
+/** Un joueur est éliminé : chute grave. */
+export function playEliminated(): void {
+  const c = ready();
+  if (!c) return;
+  tone(c, { type: "triangle", from: 392, to: 98, duration: 0.8, volume: 0.22 });
+  burst(c, { duration: 0.3, frequency: 300, q: 0.6, start: 0.5, volume: 0.5 });
+}
+
+/** Tic de la roue du tirage. */
+export function playTick(): void {
+  const c = ready();
+  if (!c) return;
+  tone(c, { type: "square", from: 1800, duration: 0.025, volume: 0.06, attack: 0.001 });
+}
+
 /** Grand score (≥ 100) ; `max` pour 180. */
 export function playBigScore(max = false): void {
   const c = ready();

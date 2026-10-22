@@ -35,9 +35,11 @@ export const OPTION_SCHEMAS = {
   around_the_world: z.object({ includeBull: z.boolean().default(true) }),
   bobs_27: z.object({ includeBull: z.boolean().default(false) }),
   killer: z.object({
+    variant: z.enum(["remplissage", "classique"]).default("remplissage"),
     lives: z.number().int().min(1).max(9).default(3),
-    zone: z.enum(["double", "any"]).default("double"),
-    selfPenalty: z.boolean().default(true),
+    zone: z.enum(["double", "any"]).optional(),
+    selfPenalty: z.boolean().optional(),
+    firstRoundProtection: z.boolean().default(true),
     numbers: z.array(z.number().int().min(1).max(20)).optional(),
   }),
   shanghai: z.object({
@@ -199,15 +201,18 @@ export const MODES: ModeDefinition[] = [
     id: "killer",
     name: "Killer",
     category: "game",
-    summary: "Devenir Killer sur son numéro puis éliminer les adversaires.",
+    summary: "Remplir son numéro pour devenir Killer, puis éliminer les adversaires.",
     minPlayers: 2,
     maxPlayers: 8,
     rules: [
-      "Chaque joueur reçoit un numéro différent (tirage au sort ou choix manuel) et un nombre de vies.",
-      "Il faut d'abord toucher son propre numéro dans la zone choisie (double, ou tout le secteur) pour devenir Killer.",
-      "Un Killer retire une vie à chaque touche du numéro d'un adversaire (en zone « tout le secteur » : simple 1, double 2, triple 3 vies).",
+      "Chaque joueur reçoit un numéro différent, tiré au sort au début de la partie (roue).",
+      "On remplit son numéro pour gagner des vies : simple +1, double +2, triple +3 (zone « doubles » : +1 par double), jusqu'à 3 vies (réglable).",
+      "Avec toutes ses vies, on devient KILLER.",
+      "Un Killer retire des vies en touchant le numéro d'un adversaire : simple 1, double 2, triple 3 (zone « doubles » : 1 par double).",
+      "Un Killer qui repasse sous le maximum de vies perd son statut et doit remplir à nouveau son numéro.",
+      "Un joueur touché alors qu'il n'a plus assez de vies est éliminé (pas d'élimination au premier tour, réglable). Le dernier joueur en jeu gagne.",
       "Option pénalité : un Killer qui touche son propre numéro perd des vies.",
-      "Un joueur sans vie est éliminé ; le dernier survivant gagne.",
+      "Variante « classique » : on part avec toutes ses vies et un seul double de son numéro fait Killer.",
     ],
   },
   {
@@ -341,7 +346,15 @@ export function prepareConfig(mode: GameModeId, rawOptions: unknown, players: Pl
       } else {
         numbers = shuffle(Array.from({ length: 20 }, (_, i) => i + 1), rng).slice(0, players.length);
       }
-      return { lives: o.lives, zone: o.zone, selfPenalty: o.selfPenalty, numbers };
+      const classic = o.variant === "classique";
+      return {
+        variant: o.variant,
+        lives: o.lives,
+        zone: o.zone ?? (classic ? "double" : "any"),
+        selfPenalty: o.selfPenalty ?? classic,
+        firstRoundProtection: o.firstRoundProtection,
+        numbers,
+      };
     }
     case "doubles_training":
     case "triples_training": {

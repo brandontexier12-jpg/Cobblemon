@@ -14,9 +14,11 @@ export interface BotTiming {
   handOverMs: number;
   /** Pause des bots après une annulation (laisse le temps d'annuler plusieurs fléchettes). */
   undoPauseMs: number;
+  /** Killer : durée de la roue du tirage par joueur à l'écran (2,6 s de rotation + 0,9 s de pause). */
+  killerDrawMs: number;
 }
 
-export const DEFAULT_BOT_TIMING: BotTiming = { firstDartMs: 1300, dartMs: 1000, nextMs: 1800, handOverMs: 2500, undoPauseMs: 6000 };
+export const DEFAULT_BOT_TIMING: BotTiming = { firstDartMs: 1300, dartMs: 1000, nextMs: 1800, handOverMs: 2500, undoPauseMs: 6000, killerDrawMs: 3500 };
 
 /**
  * Fait jouer les bots : à chaque changement d'une partie, si c'est le tour d'un bot, sa prochaine
@@ -102,8 +104,10 @@ export class BotService {
     if (current?.botAverage != null) {
       const average = current.botAverage;
       if (!state.turn.complete) {
+        // Killer : laisse la roue du tirage des numéros se terminer à l'écran avant la première fléchette.
+        const draw = state.mode === "killer" && version === 0 && this.timing.killerDrawMs > 0 ? players.length * this.timing.killerDrawMs + 1600 : 0;
         return {
-          delay: state.turn.darts.length === 0 ? this.timing.firstDartMs : this.timing.dartMs,
+          delay: (state.turn.darts.length === 0 ? this.timing.firstDartMs : this.timing.dartMs) + draw,
           run: () => {
             const fresh = this.matches.getState(matchId) as GameState;
             const { dart, coords } = botThrow(fresh, average, this.rng);

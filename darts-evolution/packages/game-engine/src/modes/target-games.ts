@@ -1,5 +1,5 @@
-import { BULL } from "@darts-evolution/shared";
-import type { ModeRules } from "../types.js";
+import { BULL, type Dart } from "@darts-evolution/shared";
+import type { DartContext, DartOutcome, ModeRules } from "../types.js";
 import {
   bestPlayers,
   hitsTarget,
@@ -353,94 +353,213 @@ export const bobs27: ModeRules<Bobs27Config, Bobs27State> = {
 };
 
 /* ------------------------------------------------------------------ */
-/* Killer : chaque joueur a un numéro ; devenir « killer » sur son     */
-/* propre double, puis retirer des vies aux adversaires.               */
+/* Killer : chaque joueur a un numéro. Règle courante (« remplissage ») : */
+/* on remplit son numéro jusqu'à N vies pour devenir Killer, puis on    */
+/* retire des vies aux adversaires ; le dernier en jeu gagne.          */
 /* ------------------------------------------------------------------ */
 
 export interface KillerConfig {
+  /**
+   * « remplissage » (règle courante, par défaut) : on part de 0, chaque touche de son numéro ajoute des
+   * vies (simple 1, double 2, triple 3) jusqu'à `lives` : on est alors Killer. Un Killer touché qui
+   * repasse sous `lives` perd son statut ; un joueur touché sans vie restante est éliminé.
+   * « classique » : on part avec `lives` vies et un seul double de son numéro fait Killer.
+   * Absent : partie créée avant l'ajout du remplissage (règle classique).
+   */
+  variant?: "remplissage" | "classique";
   lives: number;
   zone: "double" | "any";
   selfPenalty: boolean;
   /** Numéro attribué à chaque joueur (même ordre que les joueurs). */
   numbers: number[];
+  /** Remplissage : personne ne peut être éliminé pendant le premier tour. */
+  firstRoundProtection?: boolean;
 }
 
 export interface KillerState {
   lives: number[];
   killer: boolean[];
+  /** Remplissage : joueurs éliminés (0 vie ne suffit pas à être éliminé). */
+  out?: boolean[];
+}
+
+/** Données d'affichage du Killer (cible colorée, roue du tirage). */
+export interface KillerView {
+  variant: "remplissage" | "classique";
+  /** Vies pour être Killer (remplissage) ou vies de départ (classique). */
+  max: number;
+  players: { id: string; number: number; lives: number; killer: boolean; eliminated: boolean }[];
+}
+
+const isRefill = (config: KillerConfig) => config.variant === "remplissage";
+const outOf = (config: KillerConfig, m: KillerState, j: number) => (isRefill(config) ? !!m.out?.[j] : (m.lives[j] as number) === 0);
+
+function killerOnDartClassic(ctx: DartContext<KillerConfig, KillerState>, dart: Dart): DartOutcome<KillerState> {
+  const m = structuredClone(ctx.m);
+  const i = ctx.playerIndex;
+  const { numbers, zone, selfPenalty } = ctx.config;
+  const own = numbers[i] as number;
+  const inZone = zone === "double" ? dart.multiplier === 2 : dart.multiplier >= 1;
+  const damage = zone === "double" ? 1 : dart.multiplier;
+  const target = m.killer[i] ? "Adversaires" : `D${own}`;
+  if (!inZone || dart.segment < 1 || dart.segment > 20) return { m, points: 0, hit: false, target };
+  let hit = false;
+  if (dart.segment === own) {
+    hit = true;
+    if (!m.killer[i]) {
+      m.killer[i] = true;
+    } else if (selfPenalty) {
+      m.lives[i] = Math.max(0, (m.lives[i] as number) - damage);
+    }
+  } else if (m.killer[i]) {
+    const victim = numbers.findIndex((n, j) => n === dart.segment && j !== i && (m.lives[j] as number) > 0);
+    if (victim >= 0) {
+      hit = true;
+      m.lives[victim] = Math.max(0, (m.lives[victim] as number) - damage);
+    }
+  }
+  const alive = m.lives.map((l) => l > 0);
+  if (alive.filter(Boolean).length <= 1) {
+    const winnerIndex = alive.indexOf(true);
+    const winners = winnerIndex >= 0 ? [ctx.players[winnerIndex]!.id] : [];
+    return { m, points: hit ? 1 : 0, hit, target, endVisit: "win", finished: { winners } };
+  }
+  if ((m.lives[i] as number) === 0) return { m, points: 0, hit, target, endVisit: "eliminated" };
+  return { m, points: hit ? 1 : 0, hit, target };
+}
+
+function killerOnDartRefill(ctx: DartContext<KillerConfig, KillerState>, dart: Dart): DartOutcome<KillerState> {
+  const m = structuredClone(ctx.m);
+  const out = m.out ?? Array(m.lives.length).fill(false);
+  m.out = out;
+  const i = ctx.playerIndex;
+  const { numbers, zone, selfPenalty, lives: max } = ctx.config;
+  const own = numbers[i] as number;
+  const amount = zone === "double" ? 1 : dart.multiplier;
+  const valid = dart.segment >= 1 && dart.segment <= 20 && (zone === "double" ? dart.multiplier === 2 : dart.multiplier >= 1);
+  const target = m.killer[i] ? "Numéros adverses" : zone === "double" ? `D${own}` : String(own);
+  if (!valid) return { m, points: 0, hit: false, target };
+  let hit = false;
+  if (dart.segment === own) {
+    if (!m.killer[i]) {
+      hit = true;
+      m.lives[i] = Math.min(max, (m.lives[i] as number) + amount);
+      if ((m.lives[i] as number) >= max) m.killer[i] = true;
+    } else if (selfPenalty) {
+      hit = true;
+      const left = (m.lives[i] as number) - amount;
+      m.lives[i] = Math.max(0, left);
+      m.killer[i] = false;
+      if (left < 0) out[i] = true;
+    }
+  } else if (m.killer[i]) {
+    const victim = numbers.findIndex((n, j) => n === dart.segment && j !== i && !out[j]);
+    if (victim >= 0) {
+      hit = true;
+      const left = (m.lives[victim] as number) - amount;
+      const protectedRound = ctx.config.firstRoundProtection !== false && ctx.round === 1;
+      if (left < 0 && !protectedRound) {
+        out[victim] = true;
+        m.lives[victim] = 0;
+      } else {
+        m.lives[victim] = Math.max(0, left);
+      }
+      if ((m.lives[victim] as number) < max) m.killer[victim] = false;
+    }
+  }
+  const alive = out.map((o) => !o);
+  if (alive.filter(Boolean).length <= 1) {
+    const winnerIndex = alive.indexOf(true);
+    return { m, points: hit ? amount : 0, hit, target, endVisit: "win", finished: { winners: winnerIndex >= 0 ? [ctx.players[winnerIndex]!.id] : [] } };
+  }
+  if (out[i]) return { m, points: 0, hit, target, endVisit: "eliminated" };
+  return { m, points: hit ? amount : 0, hit, target };
 }
 
 export const killer: ModeRules<KillerConfig, KillerState> = {
   id: "killer",
   init(config, players) {
-    return {
-      playerIndex: 0,
-      m: { lives: Array(players.length).fill(config.lives), killer: Array(players.length).fill(false) },
-    };
+    const n = players.length;
+    if (isRefill(config)) return { playerIndex: 0, m: { lives: Array(n).fill(0), killer: Array(n).fill(false), out: Array(n).fill(false) } };
+    return { playerIndex: 0, m: { lives: Array(n).fill(config.lives), killer: Array(n).fill(false) } };
   },
   onDart(ctx, dart) {
-    const m = structuredClone(ctx.m);
-    const i = ctx.playerIndex;
-    const { numbers, zone, selfPenalty } = ctx.config;
-    const own = numbers[i] as number;
-    const inZone = zone === "double" ? dart.multiplier === 2 : dart.multiplier >= 1;
-    const damage = zone === "double" ? 1 : dart.multiplier;
-    const target = m.killer[i] ? "Adversaires" : `D${own}`;
-    if (!inZone || dart.segment < 1 || dart.segment > 20) return { m, points: 0, hit: false, target };
-    let hit = false;
-    if (dart.segment === own) {
-      hit = true;
-      if (!m.killer[i]) {
-        m.killer[i] = true;
-      } else if (selfPenalty) {
-        m.lives[i] = Math.max(0, (m.lives[i] as number) - damage);
-      }
-    } else if (m.killer[i]) {
-      const victim = numbers.findIndex((n, j) => n === dart.segment && j !== i && (m.lives[j] as number) > 0);
-      if (victim >= 0) {
-        hit = true;
-        m.lives[victim] = Math.max(0, (m.lives[victim] as number) - damage);
-      }
-    }
-    const alive = m.lives.map((l) => l > 0);
-    if (alive.filter(Boolean).length <= 1) {
-      const winnerIndex = alive.indexOf(true);
-      const winners = winnerIndex >= 0 ? [ctx.players[winnerIndex]!.id] : [];
-      return { m, points: hit ? 1 : 0, hit, target, endVisit: "win", finished: { winners } };
-    }
-    if ((m.lives[i] as number) === 0) return { m, points: 0, hit, target, endVisit: "eliminated" };
-    return { m, points: hit ? 1 : 0, hit, target };
+    return isRefill(ctx.config) ? killerOnDartRefill(ctx, dart) : killerOnDartClassic(ctx, dart);
   },
   onVisitComplete(ctx) {
     const hits = ctx.visitDarts.filter((d) => d.hit).length;
     return { m: ctx.m, record: { hits, attempts: ctx.visitDarts.length } };
   },
   advance(ctx) {
-    const active = ctx.m.lives.map((l) => l > 0);
+    const active = ctx.m.lives.map((_, j) => !outOf(ctx.config, ctx.m, j));
     const { index, wrapped } = nextActive(ctx.playerIndex, active);
     return { m: ctx.m, playerIndex: index, round: wrapped ? ctx.round + 1 : ctx.round };
   },
   view(state) {
+    const { config, m } = state;
     const i = state.turn.playerIndex;
-    const own = state.config.numbers[i] as number;
-    return {
-      headline: `Killer · ${state.config.lives} vies · zone ${state.config.zone === "double" ? "double" : "tout le numéro"}`,
-      target: state.m.killer[i] ? "Numéros adverses" : `D${own}`,
-      instruction: state.m.killer[i]
-        ? "Vous êtes Killer : touchez les numéros adverses pour leur retirer des vies"
-        : `Touchez ${state.config.zone === "double" ? "le double" : "le secteur"} ${own} pour devenir Killer`,
+    const own = config.numbers[i] as number;
+    const refill = isRefill(config);
+    const killerView: KillerView = {
+      variant: refill ? "remplissage" : "classique",
+      max: config.lives,
       players: state.players.map((p, j) => ({
         id: p.id,
-        name: p.name,
-        main: String(state.config.numbers[j]),
-        mainLabel: "Numéro",
-        details: [
-          { label: "Vies", value: "♥".repeat(state.m.lives[j] as number) || "0" },
-          { label: "Statut", value: state.m.killer[j] ? "Killer" : "En attente" },
-        ],
-        eliminated: (state.m.lives[j] as number) === 0,
-        winner: state.winners.includes(p.id),
+        number: config.numbers[j] as number,
+        lives: m.lives[j] as number,
+        killer: m.killer[j] as boolean,
+        eliminated: outOf(config, m, j),
       })),
+    };
+    const zoneText = config.zone === "double" ? "doubles" : "simple 1 · double 2 · triple 3";
+    if (!refill) {
+      return {
+        headline: `Killer · ${config.lives} vies · zone ${config.zone === "double" ? "double" : "tout le numéro"}`,
+        target: m.killer[i] ? "Numéros adverses" : `D${own}`,
+        instruction: m.killer[i]
+          ? "Vous êtes Killer : touchez les numéros adverses pour leur retirer des vies"
+          : `Touchez ${config.zone === "double" ? "le double" : "le secteur"} ${own} pour devenir Killer`,
+        killer: killerView,
+        players: state.players.map((p, j) => ({
+          id: p.id,
+          name: p.name,
+          main: String(config.numbers[j]),
+          mainLabel: "Numéro",
+          details: [
+            { label: "Vies", value: "♥".repeat(m.lives[j] as number) || "0" },
+            { label: "Statut", value: m.killer[j] ? "Killer" : "En attente" },
+          ],
+          flag: m.killer[j] && (m.lives[j] as number) > 0 ? "KILLER" : undefined,
+          eliminated: (m.lives[j] as number) === 0,
+          winner: state.winners.includes(p.id),
+        })),
+      };
+    }
+    const lives = m.lives[i] as number;
+    return {
+      headline: `Killer · ${config.lives} vies pour devenir Killer · ${zoneText}`,
+      target: m.killer[i] ? "Numéros adverses" : config.zone === "double" ? `D${own}` : String(own),
+      instruction: m.killer[i]
+        ? `KILLER : touchez les numéros adverses pour leur retirer des vies (${zoneText})`
+        : `Remplissez votre ${own} : ${lives}/${config.lives} vies (${config.zone === "double" ? "doubles seulement" : "simple +1, double +2, triple +3"})`,
+      killer: killerView,
+      players: state.players.map((p, j) => {
+        const l = m.lives[j] as number;
+        const isOut = !!m.out?.[j];
+        return {
+          id: p.id,
+          name: p.name,
+          main: String(config.numbers[j]),
+          mainLabel: "Numéro",
+          details: [
+            { label: "Vies", value: `${"♥".repeat(l)}${"♡".repeat(Math.max(0, config.lives - l))}` },
+            { label: "Statut", value: isOut ? "Éliminé" : m.killer[j] ? "KILLER" : `${l}/${config.lives}` },
+          ],
+          flag: m.killer[j] && !isOut ? "KILLER" : undefined,
+          eliminated: isOut,
+          winner: state.winners.includes(p.id),
+        };
+      }),
     };
   },
 };

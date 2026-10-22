@@ -83,7 +83,7 @@ describe("intégration Autodarts de bout en bout (simulateur de Board Manager)",
   });
 
   it("ignore la cible réelle pendant le tour d'un bot, qui passe la main seul", async () => {
-    const { sim, app } = await setup({ botTiming: { firstDartMs: 400, dartMs: 40, nextMs: 40, handOverMs: 40, undoPauseMs: 100 } });
+    const { sim, app } = await setup({ botTiming: { firstDartMs: 400, dartMs: 40, nextMs: 40, handOverMs: 40, undoPauseMs: 100, killerDrawMs: 0 } });
     const [a] = await createPlayers(app, "Alice");
     const bot = await app.json("POST", "/api/bots/60");
     const { match } = await app.json("POST", "/api/matches", { mode: "x01", options: { startScore: 501 }, playerIds: [a, bot.id], inputMode: "autodarts" });

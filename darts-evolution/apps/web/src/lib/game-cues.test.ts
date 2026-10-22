@@ -82,6 +82,20 @@ describe("sons de partie", () => {
     expect(cues[3]).toEqual([expect.objectContaining({ kind: "turn", newLeg: true })]);
   });
 
+  it("Killer : statut gagné et élimination", () => {
+    const players = [...PLAYERS, { id: "c", name: "Carol" }];
+    let state = createGame("killer", prepareConfig("killer", { numbers: [5, 10, 15] }, players, 1), players);
+    const all = (s: GameState) => ({ ...snap(s), match: { ...snap(s).match, players: players.map((p, i) => ({ ...p, avatar: "🎯", color: "#fff", position: i, isGuest: false })) } }) as MatchSnapshot;
+    const cues = [];
+    for (const label of ["T5", "S10", "S15", "next", "MISS", "MISS", "MISS", "next", "S15", "MISS", "MISS", "next", "S10"]) {
+      const next = applyEvent(state, event(label));
+      cues.push(gameCues(all(state), all(next)));
+      state = next;
+    }
+    expect(cues[0]).toContainEqual({ kind: "killer", playerName: "Alice" });
+    expect(cues[12]).toContainEqual({ kind: "eliminated", playerName: "Bob" });
+  });
+
   it("« Joueur suivant » en cours de visite : pas de son de raté pour les fléchettes ajoutées", () => {
     const { cues } = run(501, "T20", "next");
     expect(cues[1]).toEqual([

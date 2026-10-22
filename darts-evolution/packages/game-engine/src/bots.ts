@@ -1,6 +1,7 @@
 import { BOARD_RADII, classifyPoint, segmentAngle, type BoardPoint, type Dart } from "@darts-evolution/shared";
 import { suggestCheckouts, type InOutRule } from "./checkout.js";
 import { CRICKET_NUMBERS, type CricketState } from "./modes/cricket.js";
+import type { KillerConfig, KillerState } from "./modes/target-games.js";
 import type { CheckoutTrainingConfig, CheckoutTrainingState } from "./modes/training.js";
 import type { X01Config, X01State } from "./modes/x01.js";
 import type { GameState } from "./types.js";
@@ -171,6 +172,19 @@ export function chooseAim(state: GameState): Aim {
     case "count_up":
     case "high_score":
       return { segment: 20, ring: "triple" };
+    case "killer": {
+      const config = state.config as KillerConfig;
+      const m = state.m as KillerState;
+      const ring: AimRing = config.zone === "double" ? "double" : "triple";
+      const isOut = (j: number) => (config.variant === "remplissage" ? !!m.out?.[j] : (m.lives[j] as number) === 0);
+      if (!m.killer[i]) return { segment: config.numbers[i] as number, ring: config.variant === "remplissage" ? ring : "double" };
+      // Killer : d'abord les autres Killers (les plus dangereux), puis l'adversaire le plus faible.
+      const victims = config.numbers
+        .map((n, j) => ({ n, j }))
+        .filter(({ j }) => j !== i && !isOut(j))
+        .sort((a, b) => Number(m.killer[b.j]) - Number(m.killer[a.j]) || (m.lives[a.j] as number) - (m.lives[b.j] as number));
+      return victims[0] ? { segment: victims[0].n, ring } : { segment: 20, ring: "triple" };
+    }
     default: {
       // Modes à cible : la cible affichée au joueur.
       const target = describeGame(state).current.target;

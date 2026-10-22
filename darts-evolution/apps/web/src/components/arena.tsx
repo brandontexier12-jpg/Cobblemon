@@ -95,6 +95,7 @@ export function VisitBar({
   const route = !finished && !current.complete && view.checkout ? (view.checkout.routes[0] ?? null) : null;
   const suggestionFor = (i: number) => (route ? route[i - current.darts.length] : undefined);
   const label = finished ? "Dernière visite" : current.awaitingNext ? "Visite terminée" : "Au tour de";
+  const currentFlag = view.players.find((p) => p.id === current.playerId)?.flag;
   let status: ReactNode = null;
   if (current.complete && current.endReason) {
     status = (
@@ -121,6 +122,7 @@ export function VisitBar({
             {player && <PlayerAvatar avatar={player.avatar} color={player.color} size={30} />}
             <span className="truncate font-display text-2xl font-bold">{player?.name}</span>
           </span>
+          {currentFlag && <span className="mt-1 w-fit rounded bg-critical px-2 font-display text-lg font-bold tracking-widest text-white">💀 {currentFlag}</span>}
           {route && <span className="mt-1 font-display text-lg font-bold uppercase text-brand-300">Sortie {view.checkout?.remaining}</span>}
         </div>
         <div className="grid flex-1 grid-cols-3 gap-2">
@@ -196,13 +198,17 @@ export function PlayerPanel({ player, meta, variant = "full" }: { player: Player
           <span className={`font-display tabular text-4xl font-bold leading-tight ${player.active ? "text-ink-100" : "text-ink-300"}`} aria-label={`${player.mainLabel} : ${player.main}`}>
             {player.main}
           </span>
-          <span className="min-w-0 pb-1 text-right text-xs leading-tight text-ink-400">
-            {player.details.slice(0, 2).map((d) => (
-              <span key={d.label} className="block truncate">
-                {d.label} <span className="tabular font-semibold text-ink-200">{d.value}</span>
-              </span>
-            ))}
-          </span>
+          {player.flag ? (
+            <span className="mb-1 rounded-lg bg-critical px-2 py-0.5 font-display text-xl font-bold tracking-wider text-white">💀 {player.flag}</span>
+          ) : (
+            <span className="min-w-0 pb-1 text-right text-xs leading-tight text-ink-400">
+              {player.details.slice(0, 2).map((d) => (
+                <span key={d.label} className="block truncate">
+                  {d.label} <span className="tabular font-semibold text-ink-200">{d.value}</span>
+                </span>
+              ))}
+            </span>
+          )}
         </div>
       </article>
     );
@@ -220,6 +226,11 @@ export function PlayerPanel({ player, meta, variant = "full" }: { player: Player
         <h3 className={`min-w-0 flex-1 truncate font-semibold ${compact ? "text-base" : "text-lg"} ${player.active ? "text-ink-100" : "text-ink-200"}`}>{player.name}</h3>
         {badges}
       </header>
+      {player.flag && (
+        <div className="killer-flag mt-2 flex items-center justify-center gap-2 rounded-xl bg-critical/90 py-1 font-display text-3xl font-bold uppercase tracking-[0.2em] text-white shadow-[0_0_24px_rgba(224,82,82,0.6)] sm:text-4xl">
+          💀 {player.flag}
+        </div>
+      )}
       <div
         className={`font-display tabular mt-1 font-bold leading-none ${compact ? "text-5xl" : "text-7xl xl:text-8xl"} ${player.active ? "text-ink-100" : "text-ink-300"}`}
         aria-label={`${player.mainLabel} : ${player.main}`}

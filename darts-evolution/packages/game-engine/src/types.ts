@@ -171,6 +171,8 @@ export interface PlayerView {
   active: boolean;
   eliminated?: boolean;
   winner?: boolean;
+  /** Statut affiché en grand (ex. « KILLER »). */
+  flag?: string;
 }
 
 export interface BoardTable {
@@ -185,6 +187,8 @@ export interface ModeView {
   instruction?: string;
   checkout?: { remaining: number; dartsLeft: number; routes: string[][] } | null;
   board?: BoardTable;
+  /** Killer : numéros, vies et statuts (cible colorée, roue du tirage). */
+  killer?: import("./modes/target-games.js").KillerView;
 }
 
 export interface ModeRules<C, M> {

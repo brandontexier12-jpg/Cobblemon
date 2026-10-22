@@ -8,7 +8,9 @@ import {
   playBigScore,
   playBust,
   playCheckout,
+  playEliminated,
   playHit,
+  playKiller,
   playTurnChange,
   preloadVoices,
   setVolume,
@@ -125,6 +127,20 @@ function playCues(cues: GameCue[], s: SoundSettings, pack: VoicePackInfo | null)
           }
         }, delay);
         break;
+      case "killer":
+        delay += 150;
+        window.setTimeout(() => {
+          if (s.effects) playKiller();
+          if (!v.usesPack || s.nameCalls !== false) say({ text: `${cue.playerName} est KILLER !`, rate: 0.95, pitch: 0.9 });
+        }, delay);
+        break;
+      case "eliminated":
+        delay += 150;
+        window.setTimeout(() => {
+          if (s.effects) playEliminated();
+          if (!v.usesPack || s.nameCalls !== false) say({ text: `${cue.playerName} est éliminé.` });
+        }, delay);
+        break;
       case "turn":
         window.setTimeout(() => {
           if (s.effects) playTurnChange();
@@ -140,12 +156,19 @@ function playCues(cues: GameCue[], s: SoundSettings, pack: VoicePackInfo | null)
 }
 
 /** Joue les sons correspondant à chaque nouvel état de la partie affichée. */
-export function useGameSounds(snapshot: MatchSnapshot | null, settings: SoundSettings, pack: VoicePackInfo | null = null): void {
+export function useGameSounds(
+  snapshot: MatchSnapshot | null,
+  settings: SoundSettings,
+  pack: VoicePackInfo | null = null,
+  onCue?: (cue: GameCue) => void,
+): void {
   const prevRef = useRef<MatchSnapshot | null>(null);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const packRef = useRef(pack);
   packRef.current = pack;
+  const onCueRef = useRef(onCue);
+  onCueRef.current = onCue;
 
   useEffect(() => setVolume(settings.volume), [settings.volume]);
 
@@ -161,6 +184,8 @@ export function useGameSounds(snapshot: MatchSnapshot | null, settings: SoundSet
     const prev = prevRef.current;
     if (prev && prev.match.id === snapshot.match.id && snapshot.match.version <= prev.match.version) return;
     prevRef.current = snapshot;
+    const cues = gameCues(prev, snapshot);
+    for (const cue of cues) onCueRef.current?.(cue);
     const s = settingsRef.current;
     if (!s.effects && s.announcer === "off") return;
     // Début de partie : « Game on ! » si le pack en contient un.
@@ -169,7 +194,7 @@ export function useGameSounds(snapshot: MatchSnapshot | null, settings: SoundSet
       const key = p?.roles.gameon;
       if (p && key && p.files[key]) announce({ url: voiceUrl(p.id, key) });
     }
-    playCues(gameCues(prev, snapshot), s, packRef.current);
+    playCues(cues, s, packRef.current);
   }, [snapshot]);
 }
 

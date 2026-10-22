@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createPlayers, removeDir, startTestApp, throwDarts, type TestApp } from "./helpers.js";
 
-const FAST = { firstDartMs: 5, dartMs: 5, nextMs: 5, handOverMs: 20, undoPauseMs: 150 };
+const FAST = { firstDartMs: 5, dartMs: 5, nextMs: 5, handOverMs: 20, undoPauseMs: 150, killerDrawMs: 0 };
 const apps: TestApp[] = [];
 
 async function open(timing = FAST): Promise<TestApp> {
@@ -35,7 +35,7 @@ describe("bots", () => {
   });
 
   it("joue seul son tour puis rend la main ; un humain ne peut pas lancer à sa place", async () => {
-    const app = await open({ firstDartMs: 5, dartMs: 250, nextMs: 5, handOverMs: 250, undoPauseMs: 150 });
+    const app = await open({ firstDartMs: 5, dartMs: 250, nextMs: 5, handOverMs: 250, undoPauseMs: 150, killerDrawMs: 0 });
     const [alice] = await createPlayers(app, "Alice");
     const bot = await app.json("POST", "/api/bots/100");
     const { match } = await app.json("POST", "/api/matches", { mode: "x01", options: { startScore: 501 }, playerIds: [alice, bot.id] });
@@ -78,6 +78,16 @@ describe("bots", () => {
     await vi.waitFor(async () => expect((await app.json("GET", `/api/matches/${match.id}`)).match.status).toBe("finished"), { timeout: 8000, interval: 50 });
     const final = await app.json("GET", `/api/matches/${match.id}`);
     expect(final.match.winnerIds).toHaveLength(1);
+  });
+
+  it("des bots jouent un Killer complet (règle du remplissage)", async () => {
+    const app = await open();
+    const ids = [(await app.json("POST", "/api/bots/90")).id, (await app.json("POST", "/api/bots/100")).id, (await app.json("POST", "/api/bots/110")).id];
+    const { match } = await app.json("POST", "/api/matches", { mode: "killer", options: {}, playerIds: ids });
+    expect(match.config.variant).toBe("remplissage");
+    await vi.waitFor(async () => expect((await app.json("GET", `/api/matches/${match.id}`)).match.status).toBe("finished"), { timeout: 15000, interval: 50 });
+    const final = await app.json("GET", `/api/matches/${match.id}`);
+    expect(final.view.killer.players.filter((p: any) => !p.eliminated)).toHaveLength(1);
   });
 
   it("se met en pause après une annulation", async () => {

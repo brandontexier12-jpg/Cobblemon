@@ -27,6 +27,7 @@ export interface GameView {
   };
   checkout: ModeView["checkout"] | null;
   board?: ModeView["board"];
+  killer?: ModeView["killer"];
   recentVisits: VisitRecord[];
 }
 
@@ -80,6 +81,7 @@ export function describeGame(state: GameState): GameView {
     },
     checkout: modeView.checkout ?? null,
     board: modeView.board,
+    killer: modeView.killer,
     recentVisits: state.visits.slice(-12),
   };
 }

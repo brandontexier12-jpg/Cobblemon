@@ -71,15 +71,18 @@ Options par défaut : `{"includeBull":true}`
 
 ### Killer
 
-*Devenir Killer sur son numéro puis éliminer les adversaires.* — 2 à 8 joueur(s).
+*Remplir son numéro pour devenir Killer, puis éliminer les adversaires.* — 2 à 8 joueur(s).
 
-- Chaque joueur reçoit un numéro différent (tirage au sort ou choix manuel) et un nombre de vies.
-- Il faut d'abord toucher son propre numéro dans la zone choisie (double, ou tout le secteur) pour devenir Killer.
-- Un Killer retire une vie à chaque touche du numéro d'un adversaire (en zone « tout le secteur » : simple 1, double 2, triple 3 vies).
+- Chaque joueur reçoit un numéro différent, tiré au sort au début de la partie (roue).
+- On remplit son numéro pour gagner des vies : simple +1, double +2, triple +3 (zone « doubles » : +1 par double), jusqu'à 3 vies (réglable).
+- Avec toutes ses vies, on devient KILLER.
+- Un Killer retire des vies en touchant le numéro d'un adversaire : simple 1, double 2, triple 3 (zone « doubles » : 1 par double).
+- Un Killer qui repasse sous le maximum de vies perd son statut et doit remplir à nouveau son numéro.
+- Un joueur touché alors qu'il n'a plus assez de vies est éliminé (pas d'élimination au premier tour, réglable). Le dernier joueur en jeu gagne.
 - Option pénalité : un Killer qui touche son propre numéro perd des vies.
-- Un joueur sans vie est éliminé ; le dernier survivant gagne.
+- Variante « classique » : on part avec toutes ses vies et un seul double de son numéro fait Killer.
 
-Options par défaut : `{"lives":3,"zone":"double","selfPenalty":true}`
+Options par défaut : `{"variant":"remplissage","lives":3,"firstRoundProtection":true}` (zone « tout le numéro », sans pénalité ; en variante classique : zone « doubles », avec pénalité). Une partie créée avant la version 1.4.0 garde la règle classique.
 
 ### Shanghai
 

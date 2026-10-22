@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { createGame } from "../src/core.js";
 import { prepareConfig } from "../src/registry.js";
+import type { GameState } from "../src/types.js";
 import { describeGame } from "../src/view.js";
 import { ALICE, BOB, CAROL, newGame, play } from "./helpers.js";
 
@@ -92,9 +94,75 @@ describe("Bob's 27", () => {
   });
 });
 
-describe("Killer", () => {
+describe("Killer (règle courante : remplissage)", () => {
+  const k = (s: GameState<any>) => s.m as { lives: number[]; killer: boolean[]; out: boolean[] };
+
+  it("remplit son numéro (simple 1, double 2, triple 3) jusqu'à 3 vies pour devenir Killer", () => {
+    let s = newGame("killer", { numbers: [5, 10, 15] }, [ALICE, BOB, CAROL]);
+    expect(k(s).lives).toEqual([0, 0, 0]);
+    s = play(s, "S5", "S1", "D5"); // 1 + 2 = 3 : Killer
+    expect(k(s).lives[0]).toBe(3);
+    expect(k(s).killer).toEqual([true, false, false]);
+    expect(describeGame(s).players[0]!.flag).toBe("KILLER");
+    s = play(s, "next", "T10"); // Bob : triple = 3 vies d'un coup
+    expect(k(s).killer[1]).toBe(true);
+    // Les vies sont plafonnées à 3.
+    s = play(s, "T10", "S1", "next", "S15", "T15");
+    expect(k(s).lives).toEqual([3, 3, 3]);
+  });
+
+  it("un Killer retire des vies ; la victime perd son statut et doit remplir à nouveau", () => {
+    let s = newGame("killer", { numbers: [5, 10] }, [ALICE, BOB]);
+    s = play(s, "T5", "MISS", "MISS", "next"); // Alice Killer
+    s = play(s, "T10", "next"); // Bob Killer
+    s = play(s, "D10"); // Alice retire 2 vies à Bob
+    expect(k(s).lives).toEqual([3, 1]);
+    expect(k(s).killer).toEqual([true, false]);
+    expect(describeGame(s).players[1]!.flag).toBeUndefined();
+    s = play(s, "MISS", "MISS", "next", "S10"); // Bob remplit : 2/3
+    expect(k(s).lives[1]).toBe(2);
+    expect(k(s).killer[1]).toBe(false);
+  });
+
+  it("élimine un joueur touché sans vie restante (jamais au premier tour) ; le dernier gagne", () => {
+    let s = newGame("killer", { numbers: [5, 10, 15] }, [ALICE, BOB, CAROL]);
+    s = play(s, "T5", "S10", "S15"); // tour 1 : Bob et Carol à 0 mais protégés
+    expect(k(s).out).toEqual([false, false, false]);
+    s = play(s, "next", "MISS", "MISS", "MISS", "next", "S15", "MISS", "MISS", "next"); // Carol 1 vie
+    s = play(s, "S10"); // tour 2 : Bob (0 vie) touché → éliminé
+    expect(k(s).out).toEqual([false, true, false]);
+    expect(describeGame(s).players[1]!.eliminated).toBe(true);
+    s = play(s, "T15"); // Carol : 1 - 3 < 0 → éliminée, Alice gagne
+    expect(s.finished).toBe(true);
+    expect(s.winners).toEqual(["alice"]);
+  });
+
+  it("zone « doubles » : seuls les doubles comptent, une vie par double", () => {
+    let s = newGame("killer", { numbers: [5, 10], zone: "double" }, [ALICE, BOB]);
+    s = play(s, "T5", "D5", "D5");
+    expect(k(s).lives[0]).toBe(2);
+    expect(describeGame(s).current.target).toBe("D5");
+  });
+
+  it("pénalité optionnelle sur son propre numéro une fois Killer", () => {
+    let s = newGame("killer", { numbers: [5, 10], selfPenalty: true }, [ALICE, BOB]);
+    s = play(s, "T5", "S5");
+    expect(k(s).lives[0]).toBe(2);
+    expect(k(s).killer[0]).toBe(false);
+  });
+});
+
+describe("Killer (variante classique, parties existantes)", () => {
+  it("une partie enregistrée sans variante garde l'ancienne règle", () => {
+    const old = { lives: 1, zone: "double", selfPenalty: true, numbers: [5, 10, 15] };
+    let s: GameState<any> = createGame("killer", old, [ALICE, BOB, CAROL]);
+    s = play(s, "S10", "D5", "D10");
+    expect(m(s).killer).toEqual([true, false, false]);
+    expect(m(s).lives).toEqual([1, 0, 1]);
+  });
+
   it("devenir Killer puis éliminer les adversaires", () => {
-    let s = newGame("killer", { lives: 1, numbers: [5, 10, 15] }, [ALICE, BOB, CAROL]);
+    let s = newGame("killer", { variant: "classique", lives: 1, numbers: [5, 10, 15] }, [ALICE, BOB, CAROL]);
     s = play(s, "S10", "D5", "D10"); // Alice devient Killer puis retire la vie de Bob
     expect(m(s).killer).toEqual([true, false, false]);
     expect(m(s).lives).toEqual([1, 0, 1]);
@@ -109,7 +177,7 @@ describe("Killer", () => {
   });
 
   it("pénalité sur son propre numéro", () => {
-    let s = newGame("killer", { lives: 2, numbers: [5, 10] }, [ALICE, BOB]);
+    let s = newGame("killer", { variant: "classique", lives: 2, numbers: [5, 10] }, [ALICE, BOB]);
     s = play(s, "D5", "D5");
     expect(m(s).lives[0]).toBe(1);
   });

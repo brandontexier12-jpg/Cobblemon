@@ -47,7 +47,11 @@ Ouvrir `http://IP_DU_NAS:8080`, créer les joueurs (**Joueurs**), puis **Jouer**
 - **X01** 301 / 501 / 701 / 901 / 1001 ; départ simple, double, master ; sortie simple, double, master
   (dont 301/501 **sans obligation de double**) ; bust ; legs et sets ; alternance du joueur qui commence.
 - **Cricket** classique et cut-throat (15–20 + bull, marques, points, limite de manches).
-- **Count-up, High Score, Around the Clock** (zones, saut), **Around the World, Bob's 27, Killer, Shanghai**.
+- **Count-up, High Score, Around the Clock** (zones, saut), **Around the World, Bob's 27, Shanghai**.
+- **Killer** (règle courante) : numéros tirés au sort avec une **roue animée**, chaque numéro coloré à la
+  couleur de son joueur sur la cible et **rempli selon ses vies** (simple +1, double +2, triple +3 jusqu'à 3) ;
+  statut **KILLER** affiché en grand avec annonce ; un Killer touché repasse sous 3 vies et doit remplir à
+  nouveau ; élimination d'un joueur touché sans vie (pas au premier tour) ; variante classique disponible.
 - **Entraînements** doubles, triples, bull, checkout, **exercices personnalisés** (enregistrables).
 - **Assistant de checkout** calculé par algorithme (170 = T20 T20 Bull, 100 = T20 D20, 40 = D20…),
   alternatives, scores impossibles, stratégie (classique, bull, double favori), fléchettes restantes.
@@ -228,7 +232,7 @@ Prérequis : Node.js ≥ 22.13 (module `node:sqlite`).
 npm install
 npm run dev:server     # API + Socket.IO sur :8080 (rechargement automatique)
 npm run dev:web        # interface sur :5173 (proxy vers :8080)
-npm test               # 153 tests (moteur, bots, statistiques, Autodarts, serveur, mise à jour, voix, interface)
+npm test               # 161 tests (moteur, bots, statistiques, Autodarts, serveur, mise à jour, voix, interface)
 npm run typecheck      # vérification TypeScript de tous les paquets
 npm run build          # interface (Vite) + serveur assemblé (esbuild)
 npm start              # sert l'interface construite et l'API
@@ -240,7 +244,7 @@ Vérification de l'interface dans un navigateur (facultatif, nécessite Playwrig
 base vide) : `BASE=http://localhost:8080 TOUR=1 node tests/e2e/ui-smoke.cjs`.
 
 Résultats vérifiés lors de la livraison :
-- `npm test` : **16 fichiers, 153 tests réussis** (dont un flux Autodarts de bout en bout contre le
+- `npm test` : **16 fichiers, 161 tests réussis** (dont un flux Autodarts de bout en bout contre le
   simulateur, la reconnexion, les doublons, la persistance après redémarrage, les sauvegardes, la
   sécurité et le multijoueur Socket.IO) ;
 - `npm run typecheck` : sans erreur ;

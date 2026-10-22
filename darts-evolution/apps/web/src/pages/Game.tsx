@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { PlayerPanel, SoundSettingsModal, VisitBar } from "../components/arena";
 import { AutodartsPill } from "../components/AutodartsStatus";
-import { Dartboard } from "../components/Dartboard";
+import { Dartboard, type KillerSegment } from "../components/Dartboard";
+import { KillerDraw } from "../components/KillerDraw";
 import { CricketTable, DartPad, DartPickerModal, VisitHistory } from "../components/game";
 import { Icon } from "../components/Icon";
 import { Badge, Button, Card, ErrorBox, Segmented, Spinner, useUi } from "../components/ui";
@@ -12,6 +13,7 @@ import { useAppState } from "../lib/app-state";
 import { useAsync, useLocalPreference, useSocketEvent } from "../lib/hooks";
 import { emitAck, getSocket } from "../lib/socket";
 import { unlockAudio } from "../lib/sounds";
+import type { GameCue } from "../lib/game-cues";
 import type { CommandResult, MatchSnapshot, ThrownDart } from "../lib/types";
 import { DEFAULT_SOUND_SETTINGS, useAudioUnlocked, useGameSounds, type SoundSettings, type VoicePackInfo } from "../lib/use-game-sounds";
 
@@ -125,7 +127,34 @@ export function GamePage() {
     [role, id, accept, load, toast],
   );
 
-  useGameSounds(snapshot, sound, activePack);
+  // Bandeau d'événement (« Bob est KILLER ! », « Alice éliminée »).
+  const [banner, setBanner] = useState<{ text: string; tone: "killer" | "out"; key: number } | null>(null);
+  const onCue = useCallback((cue: GameCue) => {
+    if (cue.kind === "killer") setBanner({ text: `💀 ${cue.playerName} est KILLER !`, tone: "killer", key: Date.now() });
+    if (cue.kind === "eliminated") setBanner({ text: `${cue.playerName} est éliminé`, tone: "out", key: Date.now() });
+  }, []);
+  useEffect(() => {
+    if (!banner) return;
+    const t = window.setTimeout(() => setBanner(null), 2700);
+    return () => window.clearTimeout(t);
+  }, [banner]);
+  // Roue du tirage des numéros du Killer : une fois par appareil, au début de la partie.
+  const [drawSeen, setDrawSeen] = useState(() => {
+    try {
+      return sessionStorage.getItem(`de:killer-draw:${id}`) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const closeDraw = useCallback(() => {
+    setDrawSeen(true);
+    try {
+      sessionStorage.setItem(`de:killer-draw:${id}`, "1");
+    } catch {
+      // Stockage indisponible : la roue ne réapparaîtra pas pendant cette visite de toute façon.
+    }
+  }, [id]);
+  useGameSounds(snapshot, sound, activePack, onCue);
 
   if (error) return <ErrorBox message={error} onRetry={load} />;
   if (!snapshot) return <Spinner label="Chargement de la partie…" />;
@@ -151,6 +180,14 @@ export function GamePage() {
   const botName = (current.complete ? nextMeta : currentMeta)?.name;
   const showPad = canInput && !receiverBot && ((!isAutodarts && manualInput === "pad") || (isAutodarts && missedPad));
   const boardPick = canInput && !receiverBot && !isAutodarts && manualInput === "board";
+  const killerSegments: KillerSegment[] | undefined = view.killer?.players.map((k) => ({
+    segment: k.number,
+    color: match.players.find((p) => p.id === k.id)?.color ?? "#ff6b1a",
+    fill: view.killer!.max > 0 ? k.lives / view.killer!.max : 0,
+    killer: k.killer,
+    eliminated: k.eliminated,
+  }));
+  const showDraw = !!view.killer && match.version === 0 && match.status === "active" && !drawSeen;
 
   const onDart = (dart: Dart) => command({ kind: "dart", dart });
   const onBoardPick = (dart: Dart, coords: BoardPoint) => command({ kind: "dart", dart, coords });
@@ -310,13 +347,16 @@ export function GamePage() {
             </div>
           )}
           {showPad && !isAutodarts ? (
-            <div className="w-full">
+            <div className="w-full space-y-3">
+              {/* Killer : la cible colorée reste visible au-dessus du pavé. */}
+              {killerSegments && <Dartboard darts={current.darts} killer={killerSegments} className="mx-auto aspect-square w-full max-w-[340px]" />}
               <DartPad onDart={onDart} />
             </div>
           ) : (
             <Dartboard
               darts={current.darts}
-              target={finished || view.mode === "checkout_training" ? undefined : current.target /* entraînement checkout : la cible est un score */}
+              target={finished || view.mode === "checkout_training" || view.killer ? undefined : current.target /* entraînement checkout : la cible est un score */}
+              killer={killerSegments}
               onPick={boardPick ? onBoardPick : undefined}
               className="aspect-square w-full max-w-[min(100%,calc(100dvh-330px))] min-w-[260px]"
             />
@@ -382,6 +422,26 @@ export function GamePage() {
       {view.board && <CricketTable view={view} />}
       <div className={right.length === 0 ? "lg:hidden" : ""}>{history}</div>
 
+      {banner && (
+        <div className="pointer-events-none fixed inset-x-0 top-1/3 z-40 flex justify-center px-4" role="status">
+          <div
+            key={banner.key}
+            className={`event-banner rounded-3xl px-8 py-4 text-center font-display text-4xl font-bold uppercase tracking-wider shadow-2xl sm:text-6xl ${
+              banner.tone === "killer" ? "bg-critical text-white shadow-[0_0_60px_rgba(224,82,82,0.7)]" : "bg-ink-800 text-ink-100"
+            }`}
+          >
+            {banner.text}
+          </div>
+        </div>
+      )}
+      {showDraw && view.killer && (
+        <KillerDraw
+          players={view.killer.players.map((k) => match.players.find((p) => p.id === k.id)!).filter(Boolean)}
+          numbers={view.killer.players.map((k) => k.number)}
+          voice={sound.announcer !== "off"}
+          onDone={closeDraw}
+        />
+      )}
       <DartPickerModal
         open={!!correcting}
         current={correcting}

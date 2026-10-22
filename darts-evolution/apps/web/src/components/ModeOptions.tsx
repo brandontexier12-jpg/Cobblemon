@@ -230,27 +230,53 @@ export function ModeOptionsForm({ mode, options, onChange }: { mode: GameModeId;
     case "bobs_27":
       rows.push(<Toggle key="bull" checked={bool("includeBull", mode === "around_the_world")} onChange={(v) => set("includeBull", v)} label="Inclure une manche au bull" />);
       break;
-    case "killer":
+    case "killer": {
+      const variant = str("variant", "remplissage");
+      const classic = variant === "classique";
       rows.push(
-        <Field key="l" label="Vies">
+        <Field key="v" label="Règle">
+          <Segmented
+            value={variant}
+            onChange={(v) => onChange({ ...options, variant: v, zone: undefined, selfPenalty: undefined })}
+            options={[
+              { value: "remplissage", label: "Remplissage (règle courante)" },
+              { value: "classique", label: "Classique (un double)" },
+            ]}
+          />
+        </Field>,
+        <Field key="l" label={classic ? "Vies de départ" : "Vies pour devenir Killer"}>
           <Stepper value={num("lives", 3)} min={1} max={9} onChange={(v) => set("lives", v)} />
         </Field>,
         <Field key="z" label="Zone">
           <Segmented
-            value={str("zone", "double")}
+            value={str("zone", classic ? "double" : "any")}
             onChange={(v) => set("zone", v)}
             options={[
-              { value: "double", label: "Doubles" },
-              { value: "any", label: "Tout le secteur" },
+              { value: "any", label: "Tout le numéro (simple 1, double 2, triple 3)" },
+              { value: "double", label: "Doubles seulement" },
             ]}
           />
         </Field>,
-        <Toggle key="p" checked={bool("selfPenalty", true)} onChange={(v) => set("selfPenalty", v)} label="Un Killer qui touche son numéro perd des vies" />,
+        <Toggle key="p" checked={bool("selfPenalty", classic)} onChange={(v) => set("selfPenalty", v)} label="Un Killer qui touche son propre numéro perd des vies" />,
+        ...(classic
+          ? []
+          : [
+              <Toggle
+                key="f"
+                checked={bool("firstRoundProtection", true)}
+                onChange={(v) => set("firstRoundProtection", v)}
+                label="Personne n'est éliminé pendant le premier tour"
+              />,
+            ]),
         <p key="n" className="text-sm text-ink-400">
-          Les numéros sont tirés au sort au lancement de la partie.
+          {classic
+            ? "On part avec toutes ses vies ; un double de son numéro fait Killer."
+            : "On remplit son numéro jusqu'au maximum de vies pour devenir Killer ; un Killer touché repasse en dessous et doit remplir à nouveau."}{" "}
+          Les numéros sont tirés au sort au lancement de la partie (roue).
         </p>,
       );
       break;
+    }
     case "shanghai":
       rows.push(
         <Field key="r" label="Nombre de manches">

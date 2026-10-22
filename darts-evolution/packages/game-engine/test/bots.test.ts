@@ -76,7 +76,7 @@ describe("bots", () => {
   });
 
   it("joue les autres modes : cricket, tour de l'horloge, Bob's 27", () => {
-    for (const mode of ["cricket", "around_the_clock", "bobs_27", "shanghai", "count_up"] as const) {
+    for (const mode of ["cricket", "around_the_clock", "bobs_27", "shanghai", "count_up", "killer"] as const) {
       const { state } = botMatch(newGame(mode, {}, mode === "bobs_27" ? [ALICE] : [ALICE, BOB]), [90, 90], 9);
       expect(state.finished, mode).toBe(true);
     }

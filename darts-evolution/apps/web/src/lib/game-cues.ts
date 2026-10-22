@@ -9,6 +9,8 @@ export type GameCue =
   | { kind: "visit"; points: number; bust: boolean; playerName: string; announce: boolean }
   | { kind: "leg"; points: number; playerName: string }
   | { kind: "win"; points: number; winnerNames: string[] }
+  | { kind: "killer"; playerName: string }
+  | { kind: "eliminated"; playerName: string }
   | { kind: "turn"; playerName: string; remaining: number | null; solo: boolean; newLeg: boolean };
 
 /** Modes où le score de chaque visite est annoncé. */
@@ -66,6 +68,14 @@ export function gameCues(prevSnapshot: MatchSnapshot | null, nextSnapshot: Match
   }
   for (const d of fresh) {
     if (!d.padded) cues.push({ kind: "hit", segment: d.segment, multiplier: d.multiplier });
+  }
+
+  // Statuts gagnés pendant cette mise à jour (Killer, élimination).
+  for (const p of view.players) {
+    const before = prevSnapshot.view.players.find((x) => x.id === p.id);
+    if (!before) continue;
+    if (p.flag === "KILLER" && before.flag !== "KILLER") cues.push({ kind: "killer", playerName: p.name });
+    if (p.eliminated && !before.eliminated && !view.finished) cues.push({ kind: "eliminated", playerName: p.name });
   }
 
   // Une visite s'est terminée pendant cette mise à jour (3 fléchettes, bust, sortie, « Joueur suivant »).

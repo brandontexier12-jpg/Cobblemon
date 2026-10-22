@@ -113,6 +113,44 @@ body {
   animation: dart-ping 1.1s ease-out 3;
 }
 
+/* Killer : contour lumineux d'un Killer. */
+@keyframes killer-glow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.killer-glow {
+  animation: killer-glow 1.2s ease-in-out infinite;
+}
+
+/* Bandeau d'événement (Killer, élimination). */
+@keyframes banner-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  25% {
+    transform: scale(1);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.event-banner {
+  animation: banner-in 2.6s ease-out both;
+}
+
 /* Changement de joueur : le panneau actif s'allume. */
 @keyframes turn-flash {
   0% {

@@ -147,11 +147,68 @@ const STATIC_BOARD = (
   </g>
 );
 
+/** Killer : numéro d'un joueur, coloré à sa couleur et rempli selon ses vies. */
+export interface KillerSegment {
+  segment: number;
+  color: string;
+  /** Remplissage de 0 (aucune vie) à 1 (Killer). */
+  fill: number;
+  killer: boolean;
+  eliminated: boolean;
+}
+
+function KillerOverlay({ segments }: { segments: KillerSegment[] }) {
+  return (
+    <g className="pointer-events-none">
+      {segments.map((k) => {
+        const center = segmentAngle(k.segment);
+        const r0 = R.outerBull;
+        const r1 = R.doubleOuter;
+        const rFill = r0 + Math.max(0, Math.min(1, k.fill)) * (r1 - r0);
+        const [nx, ny] = svgPoint(1.155, center);
+        const color = k.eliminated ? "#52525b" : k.color;
+        const [ax, ay] = svgPoint(0.45, center - 6);
+        const [bx, by] = svgPoint(0.85, center + 6);
+        const [cx, cy] = svgPoint(0.45, center + 6);
+        const [dx, dy] = svgPoint(0.85, center - 6);
+        return (
+          <g key={k.segment}>
+            {/* Secteur du joueur : teinte légère, puis remplissage depuis le centre selon ses vies. */}
+            <path d={sectorPath(r0, r1, center - 9, center + 9)} fill={color} opacity={k.eliminated ? 0.35 : 0.22} />
+            {k.fill > 0 && !k.eliminated && <path d={sectorPath(r0, rFill, center - 9, center + 9)} fill={color} opacity={0.85} />}
+            <path
+              d={sectorPath(r0, r1, center - 9, center + 9)}
+              fill="none"
+              stroke={color}
+              strokeWidth={k.killer ? 0.022 : 0.01}
+              strokeLinejoin="round"
+              className={k.killer ? "killer-glow" : undefined}
+            />
+            {k.eliminated && (
+              <g stroke="#e4e4e7" strokeWidth={0.02} strokeLinecap="round" opacity={0.8}>
+                <line x1={ax} y1={ay} x2={bx} y2={by} />
+                <line x1={cx} y1={cy} x2={dx} y2={dy} />
+              </g>
+            )}
+            {/* Numéro du joueur sur fond de sa couleur. */}
+            <circle cx={nx} cy={ny} r={0.095} fill={color} stroke={k.killer ? "#fff" : "none"} strokeWidth={0.012} />
+            <text x={nx} y={ny} fill="#0b0b0c" fontSize={0.12} fontWeight={800} textAnchor="middle" dominantBaseline="central" style={{ fontFamily: "var(--font-display)" }}>
+              {k.segment}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
 export interface DartboardProps {
   /** Fléchettes de la visite affichée (les fléchettes ajoutées automatiquement sont ignorées). */
   darts: ThrownDart[];
   /** Cible demandée par le mode de jeu (mise en évidence). */
   target?: string;
+  /** Killer : numéros des joueurs colorés et remplis selon leurs vies. */
+  killer?: KillerSegment[];
   /** Saisie en touchant la cible. */
   onPick?: (dart: Dart, coords: BoardPoint) => void;
   disabled?: boolean;
@@ -159,7 +216,7 @@ export interface DartboardProps {
 }
 
 /** Cible vectorielle : impacts de la visite en cours, et saisie au toucher si `onPick` est fourni. */
-export function Dartboard({ darts, target, onPick, disabled = false, className = "" }: DartboardProps) {
+export function Dartboard({ darts, target, killer, onPick, disabled = false, className = "" }: DartboardProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<(Dart & { ring: BoardRing }) | null>(null);
   const interactive = !!onPick && !disabled;
@@ -217,6 +274,7 @@ export function Dartboard({ darts, target, onPick, disabled = false, className =
           </filter>
         </defs>
         {STATIC_BOARD}
+        {killer && <KillerOverlay segments={killer} />}
         {targetBeds(target).map((b) => (
           <BedHighlight key={`cible-${b.ring}`} segment={b.segment} ring={b.ring} fill="#ffffff" opacity={0.3} outline="#ffffff" />
         ))}
