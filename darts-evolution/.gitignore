@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env
+.env.local
+# Données d'exécution : jamais dans Git
+data/*
+!data/.gitkeep
+backups/*
+!backups/.gitkeep
+tests/e2e/screenshots/
+.vite/

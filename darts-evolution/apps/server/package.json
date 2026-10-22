@@ -1,0 +1,28 @@
+{
+  "name": "@darts-evolution/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "node build.mjs",
+    "start": "node dist/server.mjs"
+  },
+  "dependencies": {
+    "@darts-evolution/autodarts-adapter": "1.0.0",
+    "@darts-evolution/game-engine": "1.0.0",
+    "@darts-evolution/shared": "1.0.0",
+    "@darts-evolution/statistics": "1.0.0",
+    "@fastify/cookie": "11.1.2",
+    "@fastify/static": "10.1.5",
+    "fastify": "5.12.5",
+    "socket.io": "4.8.4",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/ws": "8.18.2",
+    "esbuild": "0.28.2",
+    "socket.io-client": "4.8.4",
+    "tsx": "4.23.15"
+  }
+}
