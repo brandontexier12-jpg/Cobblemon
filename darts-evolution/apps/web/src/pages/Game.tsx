@@ -9,11 +9,11 @@ import { Icon } from "../components/Icon";
 import { Badge, Button, Card, ErrorBox, Segmented, Spinner, useUi } from "../components/ui";
 import { ApiError, api, newId } from "../lib/api";
 import { useAppState } from "../lib/app-state";
-import { useLocalPreference, useSocketEvent } from "../lib/hooks";
+import { useAsync, useLocalPreference, useSocketEvent } from "../lib/hooks";
 import { emitAck, getSocket } from "../lib/socket";
 import { unlockAudio } from "../lib/sounds";
 import type { CommandResult, MatchSnapshot, ThrownDart } from "../lib/types";
-import { DEFAULT_SOUND_SETTINGS, useAudioUnlocked, useGameSounds, type SoundSettings } from "../lib/use-game-sounds";
+import { DEFAULT_SOUND_SETTINGS, useAudioUnlocked, useGameSounds, type SoundSettings, type VoicePackInfo } from "../lib/use-game-sounds";
 
 interface Device {
   socketId: string;
@@ -36,6 +36,8 @@ export function GamePage() {
   const [deviceName] = useLocalPreference("deviceName", `Appareil ${Math.floor(Math.random() * 90 + 10)}`);
   const [sound, setSound] = useLocalPreference<SoundSettings>("sound", DEFAULT_SOUND_SETTINGS);
   const [soundOpen, setSoundOpen] = useState(false);
+  const voicePacks = useAsync(() => api.get<VoicePackInfo[]>("/api/voices").catch(() => [] as VoicePackInfo[]), []);
+  const activePack = voicePacks.data?.find((p) => p.id === sound.voicePack) ?? null;
   // Saisie manuelle : en touchant la cible (grands écrans) ou avec le pavé (téléphones).
   const [manualInput, setManualInput] = useLocalPreference<"board" | "pad">("manualInput", window.innerWidth >= 1024 ? "board" : "pad");
   const [missedPad, setMissedPad] = useState(false);
@@ -123,7 +125,7 @@ export function GamePage() {
     [role, id, accept, load, toast],
   );
 
-  useGameSounds(snapshot, sound);
+  useGameSounds(snapshot, sound, activePack);
 
   if (error) return <ErrorBox message={error} onRetry={load} />;
   if (!snapshot) return <Spinner label="Chargement de la partie…" />;
@@ -141,8 +143,14 @@ export function GamePage() {
   const left = panels.filter((_, i) => i % 2 === 0);
   const right = panels.filter((_, i) => i % 2 === 1);
   const compact = panels.length > 2;
-  const showPad = canInput && ((!isAutodarts && manualInput === "pad") || (isAutodarts && missedPad));
-  const boardPick = canInput && !isAutodarts && manualInput === "board";
+  // Bots : la prochaine fléchette leur revient-elle ? (pendant leur visite, ou juste avant qu'ils prennent la main)
+  const currentMeta = match.players.find((p) => p.id === current.playerId);
+  const nextMeta = match.players.find((p) => p.id === current.nextPlayerId);
+  const botPlaying = !finished && currentMeta?.botAverage != null && !current.complete;
+  const receiverBot = !finished && (current.complete ? nextMeta?.botAverage != null : currentMeta?.botAverage != null);
+  const botName = (current.complete ? nextMeta : currentMeta)?.name;
+  const showPad = canInput && !receiverBot && ((!isAutodarts && manualInput === "pad") || (isAutodarts && missedPad));
+  const boardPick = canInput && !receiverBot && !isAutodarts && manualInput === "board";
 
   const onDart = (dart: Dart) => command({ kind: "dart", dart });
   const onBoardPick = (dart: Dart, coords: BoardPoint) => command({ kind: "dart", dart, coords });
@@ -182,7 +190,12 @@ export function GamePage() {
     <div className="space-y-3">
       {/* En-tête de partie */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="w-full min-w-0 sm:w-auto sm:flex-1">
+        <Link to="/" title="Retour au menu (la partie reste en cours)">
+          <Button size="sm" variant="ghost" icon="back">
+            Menu
+          </Button>
+        </Link>
+        <div className="min-w-0 flex-1 basis-48">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-display text-2xl font-bold uppercase sm:text-3xl">{view.modeName}</h1>
             {match.isSimulation && (
@@ -291,6 +304,11 @@ export function GamePage() {
               ]}
             />
           )}
+          {receiverBot && (
+            <div className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#3987e5]/50 bg-[#3987e5]/10 px-4 py-2.5 text-[#9ec5f4]" role="status">
+              <Icon name="bot" /> {botPlaying ? `${botName} joue…` : `${botName} va jouer…`}
+            </div>
+          )}
           {showPad && !isAutodarts ? (
             <div className="w-full">
               <DartPad onDart={onDart} />
@@ -303,7 +321,7 @@ export function GamePage() {
               className="aspect-square w-full max-w-[min(100%,calc(100dvh-330px))] min-w-[260px]"
             />
           )}
-          {canInput && isAutodarts && missedPad && (
+          {canInput && isAutodarts && missedPad && !receiverBot && (
             <div className="w-full rounded-2xl border border-ink-700 bg-ink-850 p-3">
               <p className="mb-2 text-sm text-ink-300">Fléchette non détectée : saisissez-la ici.</p>
               <DartPad compact onDart={onDart} />
@@ -314,7 +332,7 @@ export function GamePage() {
               <Button size="lg" icon="undo" onClick={() => command({ kind: "undo" })} disabled={busy}>
                 Annuler
               </Button>
-              <Button size="lg" variant="primary" icon="next" onClick={() => command({ kind: "next" })} disabled={busy}>
+              <Button size="lg" variant="primary" icon="next" onClick={() => command({ kind: "next" })} disabled={busy || botPlaying}>
                 Joueur suivant
               </Button>
             </div>
@@ -370,7 +388,7 @@ export function GamePage() {
         onClose={() => setCorrecting(null)}
         onPick={(dart) => correcting?.eventId && command({ kind: "correct", eventId: correcting.eventId, dart })}
       />
-      <SoundSettingsModal open={soundOpen} onClose={() => setSoundOpen(false)} settings={sound} onChange={setSound} />
+      <SoundSettingsModal open={soundOpen} onClose={() => setSoundOpen(false)} settings={sound} onChange={setSound} packs={voicePacks.data ?? []} />
     </div>
   );
 }

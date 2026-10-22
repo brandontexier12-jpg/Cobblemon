@@ -38,6 +38,8 @@ export interface AppConfig {
   webDistPath: string | null;
   sessionHours: number;
   version: string;
+  /** Packs de voix importés (dans le volume de données). */
+  voicesPath: string;
   /** Mise à jour depuis l'application (versions installées dans le volume de données). */
   update: {
     /** Le serveur tourne sous le lanceur superviseur du conteneur (redémarrage possible). */
@@ -76,6 +78,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     webDistPath: e.WEB_DIST_PATH ? path.resolve(e.WEB_DIST_PATH) : null,
     sessionHours: e.SESSION_HOURS,
     version,
+    voicesPath: path.join(path.dirname(path.resolve(e.DATABASE_PATH)), "voices"),
     update: {
       supervised: env.DE_SUPERVISED === "1",
       supervisorProtocol: Number(env.DE_SUPERVISOR_PROTOCOL ?? 0) || 0,

@@ -11,6 +11,8 @@ export interface Player {
   level: "debutant" | "intermediaire" | "confirme" | "expert";
   isGuest: boolean;
   favoriteDouble: number | null;
+  /** Bot : moyenne visée sur 3 fléchettes. */
+  botAverage: number | null;
   createdAt: string;
   archivedAt: string | null;
 }
@@ -22,6 +24,7 @@ export interface MatchPlayer {
   color: string;
   position: number;
   isGuest: boolean;
+  botAverage: number | null;
 }
 
 export interface MatchMeta {

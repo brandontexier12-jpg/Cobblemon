@@ -27,6 +27,12 @@ export function registerGameRoutes(app: FastifyInstance, ctx: AppContext): void 
     const body = z.object({ name: z.string().max(32).optional() }).parse(req.body ?? {});
     return reply.code(201).send(ctx.players.createGuest(body.name));
   });
+  // ---------- Bots (adversaires virtuels, créés à la première utilisation) ----------
+  app.get("/api/bots", async () => ctx.players.botLevels());
+  app.post("/api/bots/:average", async (req) => {
+    const { average } = z.object({ average: z.coerce.number().int() }).parse(req.params);
+    return ctx.players.bot(average);
+  });
   app.get("/api/players/:id", async (req) => ctx.players.get(id.parse(req.params).id));
   app.patch("/api/players/:id", async (req) => ctx.players.update(id.parse(req.params).id, req.body));
   app.delete("/api/players/:id", async (req) => {

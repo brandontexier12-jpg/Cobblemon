@@ -55,11 +55,26 @@ Ouvrir `http://IP_DU_NAS:8080`, créer les joueurs (**Joueurs**), puis **Jouer**
   terminée : la partie est rejouée, statistiques et compétitions mises à jour.
 - **Parties interrompues** reprises après un redémarrage (liste « Parties en cours » sur l'accueil).
 
+**Bots** : une vingtaine d'adversaires virtuels de 20 à 170 de moyenne (Jouer → « Adversaire bot »). Le bot
+vise comme un joueur (triple 20, sortie conseillée, placement sans bust, cible du mode) et sa fléchette
+s'écarte du point visé selon une dispersion calibrée par simulation de legs de 501 : un bot 60 fait environ 60
+de moyenne en partie, sorties comprises (le niveau 170 joue au maximum possible en 501, ≈ 167). Ses
+fléchettes s'affichent sur la cible (badge BOT) ; il joue seul et rend la main. En saisie manuelle, la main
+lui passe automatiquement ; avec Autodarts, au retrait des fléchettes, et la cible réelle est ignorée pendant
+son tour. Une annulation met les bots en pause quelques secondes.
+
+**Packs de voix** : Paramètres → « Packs de voix de l'annonceur » → importer un .zip d'enregistrements (un
+son par score `0.wav` … `180.wav`, `gameon.wav`…, WAV/MP3/OGG). Les WAV en Microsoft ADPCM sont convertis
+automatiquement (format non lu par les navigateurs). Les sons spéciaux s'écoutent et s'attribuent à un rôle
+(début de partie, leg, match, bust, joueur suivant). Choix du pack par appareil (bouton haut-parleur en
+partie). Les packs restent sur le NAS (`data/voices/`) et ne sont jamais intégrés au code.
+
 **Écran de jeu** inspiré des écrans de scoring en direct
 - **Cible au centre** : chaque impact de la visite apparaît à sa position réelle (coordonnées Autodarts) ou au
   centre de sa case (saisie manuelle), case touchée éclairée, cible à viser mise en évidence (entraînements).
+- **Plein écran pendant la partie** (menu masqué, bouton « Menu » pour revenir).
 - **Barre de visite** : les 3 fléchettes, le total, la consigne (« retirez les fléchettes pour passer à… »)
-  et la sortie conseillée ; **panneaux des joueurs** de part et d'autre avec le score restant en très grand,
+  et la **sortie conseillée affichée en grand dans les cases encore vides** (« T20 · T19 · D12 ») ; **panneaux des joueurs** de part et d'autre avec le score restant en très grand,
   moyennes (partie et leg) et compteurs.
 - Saisie manuelle **en touchant la cible** ou au **pavé** (au choix, mémorisé par appareil).
 - **Sons** générés par l'appareil, sans fichier ni Internet : un son par impact (simple, double, triple,
@@ -213,7 +228,7 @@ Prérequis : Node.js ≥ 22.13 (module `node:sqlite`).
 npm install
 npm run dev:server     # API + Socket.IO sur :8080 (rechargement automatique)
 npm run dev:web        # interface sur :5173 (proxy vers :8080)
-npm test               # 136 tests (moteur, statistiques, adaptateur Autodarts, serveur, mise à jour, interface)
+npm test               # 153 tests (moteur, bots, statistiques, Autodarts, serveur, mise à jour, voix, interface)
 npm run typecheck      # vérification TypeScript de tous les paquets
 npm run build          # interface (Vite) + serveur assemblé (esbuild)
 npm start              # sert l'interface construite et l'API
@@ -225,7 +240,7 @@ Vérification de l'interface dans un navigateur (facultatif, nécessite Playwrig
 base vide) : `BASE=http://localhost:8080 TOUR=1 node tests/e2e/ui-smoke.cjs`.
 
 Résultats vérifiés lors de la livraison :
-- `npm test` : **13 fichiers, 136 tests réussis** (dont un flux Autodarts de bout en bout contre le
+- `npm test` : **16 fichiers, 153 tests réussis** (dont un flux Autodarts de bout en bout contre le
   simulateur, la reconnexion, les doublons, la persistance après redémarrage, les sauvegardes, la
   sécurité et le multijoueur Socket.IO) ;
 - `npm run typecheck` : sans erreur ;

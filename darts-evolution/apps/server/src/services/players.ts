@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { BOT_AVERAGES, botLevelLabel } from "@darts-evolution/game-engine";
 import { z } from "zod";
 import { nowIso, type Database } from "../db/database.js";
 import { badRequest, conflict, notFound } from "../errors.js";
@@ -13,6 +14,8 @@ export interface Player {
   level: (typeof LEVELS)[number];
   isGuest: boolean;
   favoriteDouble: number | null;
+  /** Bot : moyenne visée sur 3 fléchettes (null pour un joueur humain). */
+  botAverage: number | null;
   createdAt: string;
   archivedAt: string | null;
 }
@@ -25,6 +28,7 @@ interface PlayerRow {
   level: Player["level"];
   is_guest: number;
   favorite_double: number | null;
+  bot_average: number | null;
   created_at: string;
   archived_at: string | null;
 }
@@ -37,6 +41,7 @@ const toPlayer = (r: PlayerRow): Player => ({
   level: r.level,
   isGuest: r.is_guest === 1,
   favoriteDouble: r.favorite_double,
+  botAverage: r.bot_average ?? null,
   createdAt: r.created_at,
   archivedAt: r.archived_at,
 });
@@ -94,6 +99,26 @@ export class PlayerService {
     return this.get(id);
   }
 
+  /** Bot d'un niveau donné (créé à la première utilisation, comme un invité : hors classements). */
+  bot(average: number): Player {
+    if (!(BOT_AVERAGES as readonly number[]).includes(average)) throw badRequest("Niveau de bot inconnu.");
+    const existing = this.db.get<{ id: string }>("SELECT id FROM players WHERE bot_average = $a AND archived_at IS NULL ORDER BY created_at LIMIT 1", { $a: average });
+    if (existing) return this.get(existing.id);
+    const id = randomUUID();
+    const hue = Math.round(200 - (average - 20) * (200 / 150)); // bleu (facile) → rouge (expert)
+    this.db.run(
+      `INSERT INTO players (id, name, avatar, color, level, is_guest, bot_average, created_at)
+       VALUES ($id, $name, '🤖', $color, 'expert', 1, $a, $at)`,
+      { $id: id, $name: `Bot ${average}`, $color: hslHex(hue, 70, 55), $a: average, $at: nowIso() },
+    );
+    return this.get(id);
+  }
+
+  /** Niveaux de bots proposés. */
+  botLevels(): { average: number; label: string; name: string }[] {
+    return BOT_AVERAGES.map((average) => ({ average, label: botLevelLabel(average), name: `Bot ${average}` }));
+  }
+
   update(id: string, input: unknown): Player {
     const current = this.get(id);
     const data = PlayerInput.partial().parse(input);
@@ -145,4 +170,16 @@ export class PlayerService {
     );
     if (row && row.id !== exceptId) throw badRequest(`Le pseudo « ${name} » est déjà utilisé.`);
   }
+}
+
+function hslHex(h: number, s: number, l: number): string {
+  const a = (s / 100) * Math.min(l / 100, 1 - l / 100);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const c = l / 100 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(c * 255)
+      .toString(16)
+      .padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
 }

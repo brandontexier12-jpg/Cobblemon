@@ -36,6 +36,8 @@ const PATHS: Record<string, string> = {
   mute: "M11 5 6 9H2v6h4l5 4zM22 9l-6 6M16 9l6 6",
   voice: "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3",
   grid: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
+  back: "M15 18l-6-6 6-6",
+  bot: "M12 8V4H8M4 8h16v12H4zM9 13v2M15 13v2M2 14h2M20 14h2",
 };
 
 export function Icon({ name, size = 20, className = "" }: { name: keyof typeof PATHS | string; size?: number; className?: string }) {

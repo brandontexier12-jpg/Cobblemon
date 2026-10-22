@@ -9,7 +9,7 @@ export type GameCue =
   | { kind: "visit"; points: number; bust: boolean; playerName: string; announce: boolean }
   | { kind: "leg"; points: number; playerName: string }
   | { kind: "win"; points: number; winnerNames: string[] }
-  | { kind: "turn"; playerName: string; remaining: number | null; solo: boolean };
+  | { kind: "turn"; playerName: string; remaining: number | null; solo: boolean; newLeg: boolean };
 
 /** Modes où le score de chaque visite est annoncé. */
 const SCORE_MODES: GameModeId[] = ["x01", "count_up", "high_score"];
@@ -83,7 +83,14 @@ export function gameCues(prevSnapshot: MatchSnapshot | null, nextSnapshot: Match
 
   if (advanced && !next.finished) {
     const remaining = view.checkout && view.checkout.routes.length > 0 ? view.checkout.remaining : null;
-    cues.push({ kind: "turn", playerName: nameOf(view.current.playerId), remaining, solo: match.players.length === 1 });
+    cues.push({
+      kind: "turn",
+      playerName: nameOf(view.current.playerId),
+      remaining,
+      solo: match.players.length === 1,
+      // Nouveau leg : la dernière visite enregistrée est la sortie du leg précédent.
+      newLeg: visit?.endReason === "checkout",
+    });
   }
   return cues;
 }

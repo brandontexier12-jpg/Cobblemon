@@ -26,9 +26,11 @@ export function Layout() {
   const online = useServerConnection();
   const updatedTo = useServerUpdated();
   const location = useLocation();
+  // Pendant une partie : plein écran, sans menu (bouton « Menu » dans l'en-tête de la partie).
+  const focus = location.pathname.startsWith("/partie/");
   return (
     <div className="min-h-screen lg:flex">
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-ink-800 bg-ink-900 p-4 lg:flex">
+      <aside className={`sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-ink-800 bg-ink-900 p-4 ${focus ? "" : "lg:flex"}`}>
         <NavLink to="/" className="mb-6 px-2">
           <Logo />
         </NavLink>
@@ -59,7 +61,7 @@ export function Layout() {
       </aside>
 
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-ink-800 bg-ink-950/90 px-4 py-2.5 backdrop-blur lg:hidden">
+        <header className={`sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-ink-800 bg-ink-950/90 px-4 py-2.5 backdrop-blur lg:hidden ${focus ? "hidden" : ""}`}>
           <NavLink to="/">
             <Logo compact />
           </NavLink>
@@ -78,12 +80,18 @@ export function Layout() {
             </button>
           </div>
         )}
-        <main key={location.pathname} className="animate-pop mx-auto w-full max-w-7xl px-4 pb-28 pt-5 sm:px-6 lg:pb-10">
+        <main
+          key={location.pathname}
+          className={`animate-pop mx-auto w-full ${focus ? "max-w-[1760px] px-3 pb-6 pt-3 sm:px-5" : "max-w-7xl px-4 pb-28 pt-5 sm:px-6 lg:pb-10"}`}
+        >
           <Outlet />
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-ink-800 bg-ink-900/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label="Navigation">
+      <nav
+        className={`fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-ink-800 bg-ink-900/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden ${focus ? "!hidden" : ""}`}
+        aria-label="Navigation"
+      >
         {MOBILE.map((to) => {
           const item = to === "/plus" ? { to, label: "Plus", icon: "menu" } : NAV.find((n) => n.to === to)!;
           return (

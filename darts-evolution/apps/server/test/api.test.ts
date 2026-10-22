@@ -242,7 +242,7 @@ describe("administration et sécurité", () => {
   it("renvoie des en-têtes de sécurité et une santé exploitable", async () => {
     const app = await open();
     const res = await app.request("GET", "/api/health");
-    expect(res.json()).toMatchObject({ status: "ok", database: "ok", schemaVersion: 2 });
+    expect(res.json()).toMatchObject({ status: "ok", database: "ok", schemaVersion: 3 });
     expect(res.headers["x-content-type-options"]).toBe("nosniff");
     expect((await app.request("GET", "/api/inexistant")).statusCode).toBe(404);
   });

@@ -8,10 +8,10 @@ afterEach(async () => {
   while (cleanups.length) await cleanups.pop()!();
 });
 
-async function setup() {
+async function setup(options: Parameters<typeof startTestApp>[2] = {}) {
   const sim = new BoardManagerSimulator({ generation: 2 });
   await sim.start();
-  const app = await startTestApp();
+  const app = await startTestApp({}, undefined, options);
   cleanups.push(() => removeDir(app.dir));
   cleanups.push(() => sim.stop());
   cleanups.push(() => app.close());
@@ -80,6 +80,32 @@ describe("intégration Autodarts de bout en bout (simulateur de Board Manager)",
     // Statistiques : alimentées par les impacts réels.
     const stats = await app.json("GET", `/api/stats/summary?playerId=${a}`);
     expect(stats.summary.x01.points).toBe(140);
+  });
+
+  it("ignore la cible réelle pendant le tour d'un bot, qui passe la main seul", async () => {
+    const { sim, app } = await setup({ botTiming: { firstDartMs: 400, dartMs: 40, nextMs: 40, handOverMs: 40, undoPauseMs: 100 } });
+    const [a] = await createPlayers(app, "Alice");
+    const bot = await app.json("POST", "/api/bots/60");
+    const { match } = await app.json("POST", "/api/matches", { mode: "x01", options: { startScore: 501 }, playerIds: [a, bot.id], inputMode: "autodarts" });
+    for (const d of ["T20", "S5", "S1"]) sim.throwDart(d);
+    await vi.waitFor(async () => expect((await view(app, match.id)).current.complete).toBe(true));
+    // Avec Autodarts, c'est le retrait qui passe la main au bot (pas de passage automatique).
+    await new Promise((r) => setTimeout(r, 150));
+    expect((await view(app, match.id)).current.playerIndex).toBe(0);
+    sim.takeout();
+    await vi.waitFor(async () => expect((await view(app, match.id)).current.playerIndex).toBe(1));
+    // Une fléchette réelle pendant le tour du bot est ignorée.
+    sim.throwDart("T20");
+    await vi.waitFor(async () => {
+      const journal = await app.json("GET", "/api/autodarts/journal");
+      expect(journal.some((j: any) => j.kind === "impact" && j.outcome === "ignoré : tour de Bot 60")).toBe(true);
+    });
+    // Le bot joue ses 3 fléchettes virtuelles puis rend la main à Alice.
+    await vi.waitFor(async () => {
+      const v = await view(app, match.id);
+      expect(v.current.playerIndex).toBe(0);
+      expect(v.recentVisits[1].darts.map((d: any) => d.source)).toEqual(["bot", "bot", "bot"]);
+    }, { timeout: 5000 });
   });
 
   it("correction faite par la cible et passage en saisie manuelle", async () => {

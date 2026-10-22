@@ -26,6 +26,9 @@ import { SettingsService } from "./services/settings.js";
 import { StatsService } from "./services/stats.js";
 import { TrainingService } from "./services/training.js";
 import { UpdateService } from "./services/updates.js";
+import { BotService, DEFAULT_BOT_TIMING, type BotTiming } from "./services/bots.js";
+import { VoiceService } from "./services/voices.js";
+import { registerVoiceRoutes } from "./http/routes-voices.js";
 import { registerUpdateRoutes } from "./http/routes-update.js";
 
 export interface BuiltApp {
@@ -53,6 +56,8 @@ export interface BuildOptions {
   logger?: boolean;
   /** Redémarrage demandé (mise à jour installée) : le lanceur relance le serveur. */
   onRestartRequested?: () => void;
+  /** Rythme des bots (accéléré dans les tests). */
+  botTiming?: BotTiming;
 }
 
 export async function buildApp(config: AppConfig, options: BuildOptions = {}): Promise<BuiltApp> {
@@ -97,6 +102,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
   const competitions = new CompetitionService(db, players, matches);
   const autodarts = new AutodartsService(db, settings, matches, log);
   const training = new TrainingService(db, players, stats);
+  const bots = new BotService(matches, log, options.botTiming ?? DEFAULT_BOT_TIMING);
   const exportsService = new ExportService(db, config.version);
   const auth = new AuthService(config.adminPassword, config.sessionHours);
   const updates = new UpdateService(config, backups, () => auth.enabled, () => {
@@ -123,6 +129,8 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     training,
     exports: exportsService,
     updates,
+    bots,
+    voices: new VoiceService(config.voicesPath),
     startedAt: Date.now(),
     runScheduledBackup() {
       const { intervalHours, retention } = settings.backup();
@@ -155,7 +163,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     reply.header("Referrer-Policy", "same-origin");
     const type = String(reply.getHeader("content-type") ?? "");
     if (type.includes("text/html")) reply.header("Content-Security-Policy", CSP);
-    if (request.url.startsWith("/api/")) reply.header("Cache-Control", "no-store");
+    if (request.url.startsWith("/api/") && !reply.getHeader("cache-control")) reply.header("Cache-Control", "no-store");
     return payload;
   });
 
@@ -179,6 +187,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
   registerGameRoutes(app, ctx);
   registerDataRoutes(app, ctx);
   registerUpdateRoutes(app, ctx);
+  registerVoiceRoutes(app, ctx);
 
   // ---------- Interface web (fichiers construits par Vite) ----------
   const webDist = config.webDistPath ?? path.resolve(process.cwd(), "apps/web/dist");
@@ -204,6 +213,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     async listen() {
       const address = await app.listen({ port: config.port, host: config.host });
       await autodarts.start();
+      bots.start();
       backupTimer = setInterval(() => {
         try {
           ctx.runScheduledBackup();
@@ -218,6 +228,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     },
     async close() {
       if (backupTimer) clearInterval(backupTimer);
+      bots.stop();
       await autodarts.stop();
       io.close();
       await app.close();

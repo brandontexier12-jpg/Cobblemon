@@ -1,9 +1,9 @@
 import { endReasonLabel } from "@darts-evolution/game-engine";
 import { dartDisplay } from "@darts-evolution/shared";
 import type { ReactNode } from "react";
-import { playHit, speak, speechAvailable, unlockAudio } from "../lib/sounds";
+import { announce, playHit, speechAvailable, unlockAudio } from "../lib/sounds";
 import type { GameView, MatchPlayer, ThrownDart } from "../lib/types";
-import type { SoundSettings } from "../lib/use-game-sounds";
+import { voiceUrl, type SoundSettings, type VoicePackInfo } from "../lib/use-game-sounds";
 import { Icon } from "./Icon";
 import { Button, Modal, PlayerAvatar, Segmented, Toggle } from "./ui";
 
@@ -17,8 +17,19 @@ function slotTone(dart: ThrownDart): string {
   return "border-ink-500 bg-ink-800 text-ink-100";
 }
 
-/** Une case de la barre de visite (fléchette 1, 2 ou 3). */
-function VisitSlot({ dart, index, onClick }: { dart: ThrownDart | null; index: number; onClick?: () => void }) {
+/** Une case de la barre de visite (fléchette 1, 2 ou 3), ou la fléchette conseillée pour sortir. */
+function VisitSlot({ dart, index, suggestion, onClick }: { dart: ThrownDart | null; index: number; suggestion?: string; onClick?: () => void }) {
+  if (!dart && suggestion) {
+    return (
+      <div
+        className="flex min-h-16 flex-col items-center justify-center rounded-xl border-2 border-dashed border-brand-500/70 bg-brand-500/10 sm:min-h-20"
+        aria-label={`Fléchette ${index + 1} conseillée pour sortir : ${suggestion}`}
+      >
+        <span className="font-display tabular text-3xl font-bold leading-none text-brand-300 sm:text-5xl">{suggestion}</span>
+        <span className="mt-1 text-[11px] uppercase tracking-wider text-brand-400/80">à viser</span>
+      </div>
+    );
+  }
   if (!dart) {
     return (
       <div className="flex min-h-16 items-center justify-center rounded-xl border border-dashed border-ink-600 sm:min-h-20" aria-label={`Fléchette ${index + 1} : pas encore lancée`}>
@@ -37,6 +48,11 @@ function VisitSlot({ dart, index, onClick }: { dart: ThrownDart | null; index: n
         {dart.source === "autodarts" && (
           <span className="rounded bg-ink-950/60 px-1 font-semibold text-ink-200" title="Détecté par Autodarts">
             AD
+          </span>
+        )}
+        {dart.source === "bot" && (
+          <span className="rounded bg-ink-950/60 px-1 font-semibold text-[#9ec5f4]" title="Fléchette du bot">
+            BOT
           </span>
         )}
         {dart.source === "simulation" && (
@@ -75,6 +91,9 @@ export function VisitBar({
   const player = players.find((p) => p.id === current.playerId);
   const nextPlayer = players.find((p) => p.id === current.nextPlayerId);
   const slots = [0, 1, 2].map((i) => current.darts[i] ?? null);
+  // Sortie conseillée : affichée dans les cases encore vides, à la place des numéros.
+  const route = !finished && !current.complete && view.checkout ? (view.checkout.routes[0] ?? null) : null;
+  const suggestionFor = (i: number) => (route ? route[i - current.darts.length] : undefined);
   const label = finished ? "Dernière visite" : current.awaitingNext ? "Visite terminée" : "Au tour de";
   let status: ReactNode = null;
   if (current.complete && current.endReason) {
@@ -102,10 +121,17 @@ export function VisitBar({
             {player && <PlayerAvatar avatar={player.avatar} color={player.color} size={30} />}
             <span className="truncate font-display text-2xl font-bold">{player?.name}</span>
           </span>
+          {route && <span className="mt-1 font-display text-lg font-bold uppercase text-brand-300">Sortie {view.checkout?.remaining}</span>}
         </div>
         <div className="grid flex-1 grid-cols-3 gap-2">
           {slots.map((d, i) => (
-            <VisitSlot key={d?.eventId ?? `${i}-${d?.label ?? "vide"}`} dart={d} index={i} onClick={d && !d.padded && onDartClick ? () => onDartClick(d) : undefined} />
+            <VisitSlot
+              key={d?.eventId ?? `${i}-${d?.label ?? "vide"}`}
+              dart={d}
+              index={i}
+              suggestion={suggestionFor(i)}
+              onClick={d && !d.padded && onDartClick ? () => onDartClick(d) : undefined}
+            />
           ))}
         </div>
         <div className="flex w-20 flex-col items-center justify-center rounded-xl bg-brand-500 px-2 text-ink-950 sm:w-28">
@@ -118,24 +144,24 @@ export function VisitBar({
           {label} : {player?.name}
         </span>
         {status}
-        {view.checkout && !finished && <CheckoutRoutes checkout={view.checkout} />}
+        {view.checkout && !finished && !current.complete && <CheckoutRoutes checkout={view.checkout} />}
       </div>
     </section>
   );
 }
 
+/** Sous la barre : variantes de sortie (la sortie conseillée est déjà dans les cases). */
 function CheckoutRoutes({ checkout }: { checkout: NonNullable<GameView["checkout"]> }) {
-  if (checkout.routes.length === 0) return <span className="ml-auto text-ink-400">Pas de sortie possible ({checkout.remaining})</span>;
-  const [best, ...others] = checkout.routes;
+  if (checkout.routes.length === 0) return <span className="ml-auto text-ink-400">Pas de sortie possible avec les fléchettes restantes ({checkout.remaining})</span>;
+  const others = checkout.routes.slice(1);
   return (
-    <span className="ml-auto flex flex-wrap items-center gap-1.5" title={others.map((r) => r.join(" · ")).join("\n")}>
-      <span className="text-xs uppercase tracking-wider text-ink-400">Sortie {checkout.remaining}</span>
-      {best!.map((label, i) => (
-        <span key={i} className="font-display rounded-lg bg-ink-100 px-2 py-0.5 text-lg font-bold text-ink-950">
-          {label}
+    <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+      <span className="font-display text-base font-bold uppercase text-brand-300 md:hidden">Sortie {checkout.remaining}</span>
+      {others.map((r, i) => (
+        <span key={i} className="font-display text-base text-ink-300">
+          ou <span className="font-bold text-ink-100">{r.join(" · ")}</span>
         </span>
       ))}
-      {others[0] && <span className="hidden text-xs text-ink-400 lg:inline">ou {others[0].join(" · ")}</span>}
     </span>
   );
 }
@@ -216,12 +242,27 @@ export function PlayerPanel({ player, meta, variant = "full" }: { player: Player
 }
 
 /** Réglages des sons (propres à chaque appareil). */
-export function SoundSettingsModal({ open, onClose, settings, onChange }: { open: boolean; onClose: () => void; settings: SoundSettings; onChange: (s: SoundSettings) => void }) {
+export function SoundSettingsModal({
+  open,
+  onClose,
+  settings,
+  onChange,
+  packs,
+}: {
+  open: boolean;
+  onClose: () => void;
+  settings: SoundSettings;
+  onChange: (s: SoundSettings) => void;
+  packs: VoicePackInfo[];
+}) {
+  const pack = packs.find((p) => p.id === settings.voicePack) ?? null;
   const test = () => {
     unlockAudio();
     window.setTimeout(() => {
       if (settings.effects) playHit("triple");
-      if (settings.announcer !== "off") speak("Cent quatre-vingts !", { rate: 0.85, pitch: 1.15 });
+      if (settings.announcer === "off") return;
+      if (pack?.files["180"]) announce({ url: voiceUrl(pack.id, "180") });
+      else announce({ text: "Cent quatre-vingts !", rate: 0.85, pitch: 1.15 });
     }, 80);
   };
   return (
@@ -242,8 +283,31 @@ export function SoundSettingsModal({ open, onClose, settings, onChange }: { open
               { value: "darts", label: "Chaque fléchette" },
             ]}
           />
-          {!speechAvailable() && <p className="mt-2 text-sm text-warning">La synthèse vocale n'est pas disponible dans ce navigateur.</p>}
+          {!speechAvailable() && !pack && <p className="mt-2 text-sm text-warning">La synthèse vocale n'est pas disponible dans ce navigateur.</p>}
         </div>
+        <label className="block">
+          <span className="mb-1 block text-sm text-ink-300">Voix de l'annonceur</span>
+          <select
+            className="w-full rounded-xl border border-ink-600 bg-ink-900 px-3 py-2"
+            value={pack?.id ?? ""}
+            onChange={(e) => onChange({ ...settings, voicePack: e.target.value || null })}
+          >
+            <option value="">Voix de l'appareil (synthèse vocale)</option>
+            {packs.map((p) => (
+              <option key={p.id} value={p.id}>
+                Pack « {p.name} » ({p.scores} scores)
+              </option>
+            ))}
+          </select>
+          {packs.length === 0 && <span className="mt-1 block text-xs text-ink-400">Importez un pack de voix dans Paramètres → Packs de voix.</span>}
+        </label>
+        {pack && (
+          <Toggle
+            checked={settings.nameCalls !== false}
+            onChange={(nameCalls) => onChange({ ...settings, nameCalls })}
+            label="Annoncer aussi le joueur suivant et le vainqueur (voix de l'appareil)"
+          />
+        )}
         <label className="block">
           <span className="mb-1 block text-sm text-ink-300">Volume : {Math.round(settings.volume * 100)} %</span>
           <input

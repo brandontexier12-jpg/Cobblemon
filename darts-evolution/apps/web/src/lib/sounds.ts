@@ -259,3 +259,89 @@ export function setVolume(value: number): void {
   volume = Math.min(1, Math.max(0, value));
   if (master) master.gain.value = volume;
 }
+
+// --- Pack de voix (fichiers audio) et file d'annonces ----------------------------------------
+
+const voiceCache = new Map<string, Promise<AudioBuffer | null>>();
+const VOICE_CACHE_SIZE = 40;
+let announceQueue: Promise<void> = Promise.resolve();
+let queued = 0;
+
+function loadVoice(url: string): Promise<AudioBuffer | null> {
+  const cached = voiceCache.get(url);
+  if (cached) {
+    voiceCache.delete(url);
+    voiceCache.set(url, cached); // récemment utilisé
+    return cached;
+  }
+  const c = audio();
+  const promise: Promise<AudioBuffer | null> = c
+    ? fetch(url)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+        .then((data) => c.decodeAudioData(data))
+        .catch(() => null)
+    : Promise.resolve(null);
+  voiceCache.set(url, promise);
+  while (voiceCache.size > VOICE_CACHE_SIZE) voiceCache.delete(voiceCache.keys().next().value as string);
+  return promise;
+}
+
+/** Précharge des sons de pack (début de partie, rôles…). */
+export function preloadVoices(urls: string[]): void {
+  for (const url of urls.slice(0, VOICE_CACHE_SIZE)) void loadVoice(url);
+}
+
+function playBufferAndWait(buffer: AudioBuffer): Promise<void> {
+  const c = ready();
+  if (!c) return Promise.resolve();
+  return new Promise((resolve) => {
+    const src = c.createBufferSource();
+    src.buffer = buffer;
+    src.connect(master!);
+    const done = () => resolve();
+    src.onended = done;
+    setTimeout(done, buffer.duration * 1000 + 300); // filet de sécurité
+    src.start();
+  });
+}
+
+function speakAndWait(text: string, rate = 1.05, pitch = 1): Promise<void> {
+  if (!speechAvailable() || !text) return Promise.resolve();
+  return new Promise((resolve) => {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = voice?.lang ?? "fr-FR";
+    if (voice ?? pickVoice()) u.voice = voice;
+    u.volume = volume;
+    u.rate = rate;
+    u.pitch = pitch;
+    u.onend = () => resolve();
+    u.onerror = () => resolve();
+    setTimeout(resolve, 6000);
+    window.speechSynthesis.speak(u);
+  });
+}
+
+export type Announcement = { url: string } | { text: string; rate?: number; pitch?: number };
+
+/**
+ * Annonce dans la file commune (pack de voix ou voix de l'appareil) : les annonces ne se chevauchent
+ * jamais. Si la file prend du retard (saisie très rapide), les annonces en trop sont abandonnées.
+ */
+export function announce(item: Announcement): void {
+  if (queued >= 3) return;
+  queued++;
+  const buffer = "url" in item ? loadVoice(item.url) : null;
+  announceQueue = announceQueue
+    .then(async () => {
+      if (buffer) {
+        const b = await buffer;
+        if (b) await playBufferAndWait(b);
+      } else if ("text" in item) {
+        await speakAndWait(item.text, item.rate, item.pitch);
+      }
+    })
+    .catch(() => {})
+    .finally(() => {
+      queued--;
+    });
+}

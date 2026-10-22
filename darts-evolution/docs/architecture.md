@@ -8,7 +8,7 @@ darts-evolution/
 │   │   ├── src/services/  joueurs, parties, statistiques, compétitions, entraînements,
 │   │   │                  sauvegardes, exports, réglages, authentification, pont Autodarts
 │   │   ├── src/http/      routes REST, temps réel (salles), messages de validation en français
-│   │   ├── src/update/    mise à jour depuis l'application : lecture ZIP, versions installées,
+│   │   ├── src/update/    mise à jour depuis l'application : lecture ZIP, WAV (packs de voix), versions installées,
 │   │   │                  lanceur superviseur (redémarrage, retour en arrière), fabrication du paquet
 │   │   └── test/          tests d'intégration (API, persistance, sauvegardes, Autodarts, Socket.IO)
 │   └── web/               React + Vite + Tailwind CSS (interface en français)
@@ -48,9 +48,9 @@ darts-evolution/
 
 | Table | Contenu |
 |---|---|
-| `players` | profils (pseudo, avatar, couleur, niveau, invité, archivage) |
+| `players` | profils (pseudo, avatar, couleur, niveau, invité, archivage) ; bots : `bot_average` (migration 3) |
 | `matches`, `match_players` | parties : mode, options, configuration préparée, statut, saisie, code de salle, simulation |
-| `match_events` | journal (fléchettes, fins de visite), provenance, identifiant Autodarts (unique), statut, position de l'impact `x`/`y` (migration 2) |
+| `match_events` | journal (fléchettes, fins de visite), provenance (manuelle, autodarts, simulation, bot), identifiant Autodarts (unique), statut, position de l'impact `x`/`y` (migration 2) |
 | `match_commands` | identifiants de commandes déjà appliquées (idempotence) |
 | `match_visits`, `match_results` | données dérivées pour statistiques et historique |
 | `exercises`, `weekly_goals` | exercices personnalisés, objectifs hebdomadaires |

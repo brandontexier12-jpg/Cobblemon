@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Badge, Button, Card, Field, inputClass, PageHeader, Segmented, Stepper, useUi } from "../components/ui";
 import { UpdateCard } from "../components/UpdateCard";
+import { VoicePacksCard } from "../components/VoicePacksCard";
 import { api } from "../lib/api";
 import { useAppState } from "../lib/app-state";
 import { fmtDateTime } from "../lib/format";
@@ -238,6 +239,8 @@ export function SettingsPage() {
           </div>
         )}
       </Card>
+
+      <VoicePacksCard canEdit={auth.isAdmin || !auth.adminConfigured} />
 
       <UpdateCard isAdmin={auth.isAdmin} />
 

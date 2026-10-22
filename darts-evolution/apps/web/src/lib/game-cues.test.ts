@@ -48,15 +48,15 @@ describe("sons de partie", () => {
       { kind: "hit", segment: 1, multiplier: 2 },
       { kind: "visit", points: 67, bust: false, playerName: "Alice", announce: true },
     ]);
-    expect(cues[3]).toEqual([{ kind: "turn", playerName: "Bob", remaining: null, solo: false }]);
+    expect(cues[3]).toEqual([{ kind: "turn", playerName: "Bob", remaining: null, solo: false, newLeg: false }]);
   });
 
   it("annonce le reste quand une sortie est possible", () => {
     // Alice 101 → 40 ; Bob joue ; Alice revient sur 40.
     const { cues } = run(101, "T20", "S1", "M", "next", "S1", "S1", "S1", "next");
     // 101 se termine en 3 fléchettes (T17, Bull) : le reste est annoncé.
-    expect(cues[3]).toEqual([{ kind: "turn", playerName: "Bob", remaining: 101, solo: false }]);
-    expect(cues[7]).toEqual([{ kind: "turn", playerName: "Alice", remaining: 40, solo: false }]);
+    expect(cues[3]).toEqual([{ kind: "turn", playerName: "Bob", remaining: 101, solo: false, newLeg: false }]);
+    expect(cues[7]).toEqual([{ kind: "turn", playerName: "Alice", remaining: 40, solo: false, newLeg: false }]);
   });
 
   it("bust, sortie et victoire", () => {
@@ -69,11 +69,24 @@ describe("sons de partie", () => {
     ]);
   });
 
+  it("leg gagné puis nouveau leg (pour le « Game on » du pack de voix)", () => {
+    const players = PLAYERS;
+    let state = createGame("x01", prepareConfig("x01", { startScore: 101, legs: 2 }, players, 1), players);
+    const cues = [];
+    for (const label of ["T20", "S1", "D20", "next"]) {
+      const next = applyEvent(state, event(label));
+      cues.push(gameCues(snap(state), snap(next)));
+      state = next;
+    }
+    expect(cues[2]).toContainEqual({ kind: "leg", points: 101, playerName: "Alice" });
+    expect(cues[3]).toEqual([expect.objectContaining({ kind: "turn", newLeg: true })]);
+  });
+
   it("« Joueur suivant » en cours de visite : pas de son de raté pour les fléchettes ajoutées", () => {
     const { cues } = run(501, "T20", "next");
     expect(cues[1]).toEqual([
       { kind: "visit", points: 60, bust: false, playerName: "Alice", announce: true },
-      { kind: "turn", playerName: "Bob", remaining: null, solo: false },
+      { kind: "turn", playerName: "Bob", remaining: null, solo: false, newLeg: false },
     ]);
   });
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../lib/api";
+import { useAsync } from "../lib/hooks";
 import { useAppState } from "../lib/app-state";
 import type { Player } from "../lib/types";
 import { Icon } from "./Icon";
@@ -11,6 +12,8 @@ export function PlayerPicker({ selected, onChange, max = 8 }: { selected: string
   const { toast } = useUi();
   const [guests, setGuests] = useState<Player[]>([]);
   const [newName, setNewName] = useState("");
+  const botLevels = useAsync(() => api.get<{ average: number; label: string; name: string }[]>("/api/bots"), []);
+  const [botAverage, setBotAverage] = useState(60);
   const all = [...players, ...guests];
   const toggle = (id: string) => {
     if (selected.includes(id)) onChange(selected.filter((s) => s !== id));
@@ -38,6 +41,15 @@ export function PlayerPicker({ selected, onChange, max = 8 }: { selected: string
       setGuests((g) => [...g, guest]);
       setNewName("");
       if (selected.length < max) onChange([...selected, guest.id]);
+    } catch (e) {
+      toast((e as Error).message, "critical");
+    }
+  };
+  const addBot = async () => {
+    try {
+      const bot = await api.post<Player>(`/api/bots/${botAverage}`);
+      setGuests((g) => (g.some((x) => x.id === bot.id) ? g : [...g, bot]));
+      if (!selected.includes(bot.id) && selected.length < max) onChange([...selected, bot.id]);
     } catch (e) {
       toast((e as Error).message, "critical");
     }
@@ -75,12 +87,28 @@ export function PlayerPicker({ selected, onChange, max = 8 }: { selected: string
         {all.length === 0 && <p className="text-ink-400">Aucun joueur : créez-en un ou ajoutez un invité ci-dessous.</p>}
       </div>
       <div className="flex flex-wrap gap-2">
-        <input className={`${inputClass} max-w-xs flex-1`} placeholder="Nouveau joueur ou invité…" value={newName} maxLength={32} onChange={(e) => setNewName(e.target.value)} />
+        <input className={`${inputClass} min-w-40 max-w-xs flex-1`} placeholder="Nouveau joueur ou invité…" value={newName} maxLength={32} onChange={(e) => setNewName(e.target.value)} />
         <Button icon="plus" onClick={addPlayer} disabled={!newName.trim()}>
           Créer le profil
         </Button>
         <Button variant="ghost" icon="users" onClick={addGuest}>
           Invité
+        </Button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-ink-700 bg-ink-900 p-2">
+        <Icon name="bot" className="ml-1 text-brand-400" />
+        <label className="text-sm text-ink-300" htmlFor="bot-level">
+          Adversaire bot
+        </label>
+        <select id="bot-level" className={`${inputClass} w-auto min-w-48 flex-1 sm:flex-none`} value={botAverage} onChange={(e) => setBotAverage(Number(e.target.value))}>
+          {(botLevels.data ?? []).map((l) => (
+            <option key={l.average} value={l.average}>
+              {l.name} — {l.label} (moyenne {l.average === 170 ? "≈ 167, le maximum" : l.average})
+            </option>
+          ))}
+        </select>
+        <Button icon="plus" onClick={addBot} disabled={!botLevels.data}>
+          Ajouter le bot
         </Button>
       </div>
       {selected.length > 1 && (

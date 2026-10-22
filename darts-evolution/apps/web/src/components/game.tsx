@@ -114,6 +114,7 @@ export function DartChip({ dart, onClick, size = "md" }: { dart?: ThrownDart | n
       <span className="font-display font-bold">{dart.padded ? "–" : dartDisplay(dart)}</span>
       {dart.source === "autodarts" && <span className="ml-1 text-[10px] font-semibold uppercase text-ink-300" title="Détecté par Autodarts">AD</span>}
       {dart.source === "simulation" && <span className="ml-1 text-[10px] font-semibold uppercase text-warning" title="Impact simulé">SIM</span>}
+      {dart.source === "bot" && <span className="ml-1 text-[10px] font-semibold uppercase text-[#9ec5f4]" title="Fléchette du bot">BOT</span>}
     </>
   );
   const cls = `inline-flex items-center justify-center rounded-xl border px-2 tabular ${sizes[size]} ${tone}`;

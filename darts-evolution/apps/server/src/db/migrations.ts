@@ -208,4 +208,12 @@ export const MIGRATIONS: Migration[] = [
       ALTER TABLE match_events ADD COLUMN y REAL;
     `,
   },
+  {
+    version: 3,
+    name: "bots",
+    sql: `
+      -- Adversaire virtuel : moyenne visée sur 3 fléchettes (NULL pour un joueur humain).
+      ALTER TABLE players ADD COLUMN bot_average INTEGER;
+    `,
+  },
 ];

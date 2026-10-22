@@ -320,6 +320,12 @@ export class AutodartsService extends EventEmitter {
       this.notice(target.matchId, "info", `Fléchette ${dartDisplay(t.dart)} ignorée : la visite est terminée, retirez les fléchettes.`);
       return;
     }
+    const bot = this.botOnTurn(target.matchId, state.turn.playerIndex);
+    if (bot) {
+      this.journal("impact", this.summary(t), `ignoré : tour de ${bot}`, target.matchId);
+      this.notice(target.matchId, "info", `Fléchette ${dartDisplay(t.dart)} ignorée : c'est au tour de ${bot}.`);
+      return;
+    }
     try {
       const result = this.matches.command(target.matchId, {
         kind: "dart",
@@ -363,6 +369,12 @@ export class AutodartsService extends EventEmitter {
     }
   }
 
+  /** Nom du bot dont c'est le tour (ses fléchettes sont virtuelles : la cible réelle est ignorée). */
+  private botOnTurn(matchId: string, playerIndex: number): string | null {
+    const player = this.matches.get(matchId).match.players[playerIndex];
+    return player?.botAverage != null ? player.name : null;
+  }
+
   /** Fin de visite détectée sur la cible (retrait des fléchettes ou reset manuel). */
   private onVisitBoundary(kind: "retrait" | "reset", dartsOnBoard: number, key: string): void {
     const target = this.target();
@@ -371,6 +383,11 @@ export class AutodartsService extends EventEmitter {
       return;
     }
     const state = this.matches.getState(target.matchId);
+    const bot = this.botOnTurn(target.matchId, state.turn.playerIndex);
+    if (bot) {
+      this.journal(kind, { dartsOnBoard }, `ignoré : tour de ${bot} (il passe la main seul)`, target.matchId);
+      return;
+    }
     if (!state.turn.complete && state.turn.darts.length === 0) {
       this.journal(kind, { dartsOnBoard }, "ignoré : aucune fléchette dans la visite en cours", target.matchId);
       return;

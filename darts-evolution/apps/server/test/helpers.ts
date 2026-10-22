@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { LightMyRequestResponse } from "fastify";
-import { buildApp, type BuiltApp } from "../src/app.js";
+import { buildApp, type BuildOptions, type BuiltApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
 
 export interface TestApp {
@@ -14,7 +14,7 @@ export interface TestApp {
   close(): Promise<void>;
 }
 
-export async function startTestApp(extraEnv: Record<string, string> = {}, existingDir?: string): Promise<TestApp> {
+export async function startTestApp(extraEnv: Record<string, string> = {}, existingDir?: string, options: BuildOptions = {}): Promise<TestApp> {
   const dir = existingDir ?? mkdtempSync(path.join(tmpdir(), "darts-evolution-test-"));
   const env = {
     APP_PORT: "0",
@@ -25,7 +25,7 @@ export async function startTestApp(extraEnv: Record<string, string> = {}, existi
     LOG_LEVEL: "silent",
     ...extraEnv,
   };
-  const built = await buildApp(loadConfig(env), { logger: false });
+  const built = await buildApp(loadConfig(env), { logger: false, ...options });
   const request = (method: string, url: string, body?: unknown, headers: Record<string, string> = {}) =>
     built.app.inject({
       method: method as "GET",

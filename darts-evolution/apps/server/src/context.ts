@@ -13,6 +13,8 @@ import type { SettingsService } from "./services/settings.js";
 import type { StatsService } from "./services/stats.js";
 import type { TrainingService } from "./services/training.js";
 import type { UpdateService } from "./services/updates.js";
+import type { BotService } from "./services/bots.js";
+import type { VoiceService } from "./services/voices.js";
 
 export interface AppContext {
   config: AppConfig;
@@ -28,6 +30,8 @@ export interface AppContext {
   training: TrainingService;
   exports: ExportService;
   updates: UpdateService;
+  bots: BotService;
+  voices: VoiceService;
   startedAt: number;
   /** Prochaine sauvegarde automatique (vérification périodique). */
   runScheduledBackup(): void;

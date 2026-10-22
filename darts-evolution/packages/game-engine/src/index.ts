@@ -7,3 +7,4 @@ export { getRules } from "./rules.js";
 export { CRICKET_NUMBERS } from "./modes/cricket.js";
 export { hitsTarget, targetLabel, type Ring, type TargetSpec } from "./modes/helpers.js";
 export type { X01Config, X01State } from "./modes/x01.js";
+export * from "./bots.js";

@@ -6,6 +6,7 @@ import {
   describeGame,
   getModeDefinition,
   GameRuleError,
+  peekNextPlayerIndex,
   isGameModeId,
   ModeConfigError,
   prepareConfig,
@@ -25,7 +26,7 @@ import type { PlayerService } from "./players.js";
 
 export type MatchStatus = "active" | "finished" | "abandoned";
 export type InputMode = "manual" | "autodarts";
-export type EventSource = "manual" | "autodarts" | "simulation";
+export type EventSource = "manual" | "autodarts" | "simulation" | "bot";
 
 interface MatchRow {
   id: string;
@@ -69,6 +70,8 @@ export interface MatchPlayer {
   color: string;
   position: number;
   isGuest: boolean;
+  /** Bot : moyenne visée (null pour un joueur humain). */
+  botAverage: number | null;
 }
 
 export interface MatchMeta {
@@ -276,8 +279,17 @@ export class MatchService extends EventEmitter {
     const row = this.db.get<MatchRow>("SELECT * FROM matches WHERE id = $id", { $id: id });
     if (!row) throw notFound("Partie");
     const players = this.db
-      .all<{ player_id: string; name: string; position: number; avatar: string | null; color: string | null; is_guest: number | null; current_name: string | null }>(
-        `SELECT mp.player_id, mp.name, mp.position, p.avatar, p.color, p.is_guest, p.name AS current_name
+      .all<{
+        player_id: string;
+        name: string;
+        position: number;
+        avatar: string | null;
+        color: string | null;
+        is_guest: number | null;
+        bot_average: number | null;
+        current_name: string | null;
+      }>(
+        `SELECT mp.player_id, mp.name, mp.position, p.avatar, p.color, p.is_guest, p.bot_average, p.name AS current_name
          FROM match_players mp LEFT JOIN players p ON p.id = mp.player_id WHERE mp.match_id = $id ORDER BY mp.position`,
         { $id: id },
       )
@@ -288,6 +300,7 @@ export class MatchService extends EventEmitter {
         color: r.color ?? "#ff6a00",
         position: r.position,
         isGuest: r.is_guest === 1,
+        botAverage: r.bot_average ?? null,
       }));
     const events = this.db.all<EventRow>("SELECT * FROM match_events WHERE match_id = $id AND status = 'active' ORDER BY seq, created_at", { $id: id });
     const refs = players.map((p) => ({ id: p.id, name: p.name }));
@@ -442,6 +455,7 @@ export class MatchService extends EventEmitter {
             if (raw.kind === "dart" && raw.externalId && this.hasExternalId(matchId, raw.externalId)) {
               return { snapshot: this.snapshot(c), applied: false, duplicate: true };
             }
+            this.assertTurnOwner(c, raw.kind, source);
             const id = randomUUID();
             const coords = raw.kind === "dart" ? validCoords(raw.coords) : undefined;
             const event: GameEvent =
@@ -533,8 +547,25 @@ export class MatchService extends EventEmitter {
         throw error;
       }
     });
-    if (result.applied) this.emit("updated", result.snapshot);
+    if (result.applied) this.emit("updated", result.snapshot, raw.kind);
     return result;
+  }
+
+  /**
+   * Pendant le tour d'un bot, seul le bot lance ; inversement, un bot ne lance jamais pour un humain
+   * (commande périmée). « Joueur suivant » reste possible une fois la visite du bot terminée.
+   */
+  private assertTurnOwner(c: Cached, kind: "dart" | "next", source: EventSource): void {
+    const { turn } = c.state;
+    const receiver = kind === "dart" && turn.complete ? peekNextPlayerIndex(c.state) : turn.playerIndex;
+    const player = receiver === null ? undefined : c.players[receiver];
+    const isBot = player?.botAverage != null;
+    if (kind === "dart") {
+      if (isBot && source !== "bot") throw conflict(`C'est au tour de ${player!.name} : le bot lance seul.`, "bot_turn");
+      if (!isBot && source === "bot") throw conflict("Ce n'est plus le tour du bot.", "bot_stale");
+    } else if (isBot && !turn.complete && source !== "bot") {
+      throw conflict(`${player!.name} est en train de jouer.`, "bot_turn");
+    }
   }
 
   setInputMode(matchId: string, mode: InputMode): MatchSnapshot {
