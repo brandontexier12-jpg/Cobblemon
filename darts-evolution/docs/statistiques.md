@@ -1,7 +1,9 @@
 # Statistiques : définitions et formules
 
 Toutes les mesures sont **calculées à partir des visites réellement enregistrées** (table `match_visits`,
-dérivée du journal d'événements de chaque partie). Les parties marquées **simulation** sont exclues.
+dérivée du journal d'événements de chaque partie). Les parties marquées **simulation** et les parties
+**abandonnées** sont exclues (ces dernières restent consultables dans l'historique ; rien n'est supprimé).
+Les parties en cours ou gardées pour plus tard comptent.
 Une correction ou une annulation rejoue la partie et réécrit ses visites : les statistiques, records,
 badges et niveaux sont donc toujours cohérents (rien n'est cumulé à part).
 

@@ -28,6 +28,8 @@ Plus de détails dans les journaux : `LOG_LEVEL=debug` dans `.env`, puis `docker
 | Autodarts « Délai dépassé » | Machine éteinte, autre réseau, pare-feu | `ping` depuis le NAS ; ouvrir le port 3180 |
 | Autodarts connecté mais aucun impact | Détection arrêtée, partie non liée, saisie manuelle active, ou lancers non transmis (v2) | Page Intégration : avertissements et journal |
 | Impacts ignorés « en attente du retrait » | Fléchettes lancées après une visite terminée | Retirer les fléchettes avant de lancer |
+| La 3e fléchette n'est pas comptée (comptée ratée) | Fléchette non détectée par Autodarts (souvent masquée par les deux premières), ou détail non transmis | Toucher « – » dans le bandeau jaune pour la saisir ; Intégration → Autodarts → « Diagnostic des fléchettes manquantes » indique la cause ; recalibrer si les « non détectées » dominent |
+| Une ancienne partie gêne les suivantes | Partie quittée sans être terminée (restée « en cours ») | L'abandonner (croix sur l'accueil, ou « Menu » → « Abandonner la partie ») : elle sort des statistiques et de l'historique par défaut |
 | Écran figé sur un appareil | Connexion temps réel perdue | Le bandeau rouge l'indique ; la reconnexion est automatique, sinon recharger la page |
 | « La partie a été modifiée depuis un autre appareil » | Deux appareils ont validé en même temps | L'affichage est actualisé ; recommencer l'action si nécessaire |
 | Mot de passe administrateur oublié | — | Modifier `ADMIN_PASSWORD` dans `.env`, puis `docker compose up -d` |
@@ -42,7 +44,7 @@ Plus de détails dans les journaux : `LOG_LEVEL=debug` dans `.env`, puis `docker
 `GET /api/health` renvoie par exemple :
 
 ```json
-{"status":"ok","version":"1.5.0","uptimeSeconds":3600,"database":"ok","schemaVersion":3,"autodarts":"connected"}
+{"status":"ok","version":"1.6.0","uptimeSeconds":3600,"database":"ok","schemaVersion":3,"autodarts":"connected"}
 ```
 
 `status` vaut `degraded` (code HTTP 503) si la base SQLite ne répond plus.

@@ -82,6 +82,86 @@ describe("intégration Autodarts de bout en bout (simulateur de Board Manager)",
     expect(stats.summary.x01.points).toBe(140);
   });
 
+  it("visite incomplète : cause au journal, 3e fléchette relue par HTTP, saisie après coup de la fléchette manquée", async () => {
+    const { sim, app } = await setup();
+    const [a, b] = await createPlayers(app, "Alice", "Bob");
+    const { match } = await app.json("POST", "/api/matches", { mode: "x01", options: { startScore: 501 }, playerIds: [a, b], inputMode: "autodarts" });
+
+    // La cible ne détecte que deux fléchettes avant le retrait.
+    sim.throwDart("T20");
+    sim.throwDart("T20");
+    await vi.waitFor(async () => expect((await view(app, match.id)).current.darts).toHaveLength(2));
+    sim.takeout();
+    await vi.waitFor(async () => expect((await view(app, match.id)).current.playerIndex).toBe(1));
+    const journal = await app.json("GET", "/api/autodarts/journal");
+    const entry = journal.find((j: any) => j.kind === "retrait");
+    expect(entry.outcome).toBe("visite incomplète : la cible n'a détecté que 2 fléchette(s)");
+    expect(entry.summary).toMatchObject({ dartsOnBoard: 2, announced: 2, counted: 2, early: true });
+
+    // La fléchette manquante (comptée ratée) est saisie après coup : la visite et le score sont recalculés.
+    let v = await view(app, match.id);
+    const padded = v.recentVisits[0].darts[2];
+    expect(padded).toMatchObject({ padded: true, paddedBy: expect.any(String) });
+    expect(v.players[0].main).toBe("381");
+    const r = await app.json("POST", `/api/matches/${match.id}/commands`, { kind: "insert", paddedBy: padded.paddedBy, dart: { segment: 20, multiplier: 1 } });
+    expect(r.applied).toBe(true);
+    v = r.snapshot.view;
+    expect(v.players[0].main).toBe("361");
+    expect(v.recentVisits[0].darts.map((d: any) => d.label)).toEqual(["T20", "T20", "S20"]);
+    expect(v.recentVisits[0].darts.some((d: any) => d.padded)).toBe(false);
+    expect(v.current.playerIndex).toBe(1); // toujours le tour de Bob
+    // Plus rien à saisir dans cette visite.
+    const again = await app.request("POST", `/api/matches/${match.id}/commands`, { kind: "insert", paddedBy: padded.paddedBy, dart: { segment: 20, multiplier: 1 } });
+    expect(again.statusCode).toBe(400);
+
+    // 3e fléchette annoncée sans détail dans le message : relue aussitôt, la visite reste complète.
+    sim.throwDart("S5");
+    sim.throwDart("S5");
+    sim.throwDart("S5", { lateDetail: true });
+    await vi.waitFor(async () => expect((await view(app, match.id)).players[1].main).toBe("486"), { timeout: 3000 });
+    sim.takeout();
+    await vi.waitFor(async () => expect((await view(app, match.id)).current.playerIndex).toBe(0));
+    const visits = await app.json("GET", `/api/matches/${match.id}/visits`);
+    expect(visits[1].darts.map((d: any) => !!d.padded)).toEqual([false, false, false]);
+    const stats = await app.json("GET", `/api/stats/summary?playerId=${a}`);
+    expect(stats.summary.x01.points).toBe(140);
+
+    // Diagnostic : une visite incomplète (non détectée par la cible), une complète, une fléchette relue.
+    const diag = await app.json("GET", "/api/autodarts/diagnostic");
+    expect(diag).toMatchObject({ visits: 2, complete: 1, notDetected: 1, detailMissing: 0, refused: 0, recovered: 1 });
+    expect(diag.verdict.map((v: any) => v.text).join(" ")).toContain("n'a pas détecté toutes les fléchettes");
+    const file = await app.request("GET", "/api/autodarts/journal?limit=1000&download=1");
+    expect(file.headers["content-disposition"]).toMatch(/^attachment; filename="journal-autodarts-.+\.json"$/);
+    expect(file.json()).toMatchObject({ autodarts: { state: "connected" }, diagnostic: { visits: 2 } });
+    expect(file.json().journal.length).toBeGreaterThan(5);
+  });
+
+  it("quitter une partie pour plus tard la détache d'Autodarts, la reprendre la relie", async () => {
+    const { sim, app } = await setup();
+    const [a, b] = await createPlayers(app, "Alice", "Bob");
+    const { match } = await app.json("POST", "/api/matches", { mode: "x01", options: { startScore: 501 }, playerIds: [a, b], inputMode: "autodarts" });
+    expect((await app.json("GET", "/api/autodarts")).boundMatchId).toBe(match.id);
+
+    await app.json("POST", `/api/matches/${match.id}/leave`);
+    expect((await app.json("GET", "/api/autodarts")).boundMatchId).toBeNull();
+    sim.throwDart("T20");
+    await vi.waitFor(async () => {
+      const journal = await app.json("GET", "/api/autodarts/journal");
+      expect(journal.some((j: any) => j.kind === "impact" && j.outcome === "ignoré : aucune partie liée à Autodarts")).toBe(true);
+    });
+    expect((await view(app, match.id)).current.darts).toHaveLength(0);
+    sim.takeout();
+
+    const resumed = await app.json("POST", `/api/matches/${match.id}/resume`);
+    expect(resumed.match.status).toBe("active");
+    expect((await app.json("GET", "/api/autodarts")).boundMatchId).toBe(match.id);
+    sim.throwDart("S20");
+    await vi.waitFor(async () => expect((await view(app, match.id)).players[0].main).toBe("481"));
+
+    const journal = await app.json("GET", "/api/autodarts/journal");
+    expect(journal.filter((j: any) => j.kind === "liaison").map((j: any) => j.outcome)).toEqual(["partie liée à Autodarts", "aucune partie liée", "partie liée à Autodarts"]);
+  });
+
   it("ignore la cible réelle pendant le tour d'un bot, qui passe la main seul", async () => {
     const { sim, app } = await setup({ botTiming: { firstDartMs: 400, dartMs: 40, nextMs: 40, handOverMs: 40, undoPauseMs: 100, killerDrawMs: 0 } });
     const [a] = await createPlayers(app, "Alice");

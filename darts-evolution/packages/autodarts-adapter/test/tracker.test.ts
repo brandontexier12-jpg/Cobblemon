@@ -182,6 +182,41 @@ describe("déduplication, corrections, resets et reconnexions", () => {
     expect(tracker.live(snapshot(state(["T20", "S20", "D10"])))).toEqual([]);
   });
 
+  it("fléchette annoncée sans détail : relue par HTTP, puis le message en retard n'est pas pris pour un retrait", () => {
+    const tracker = newTracker();
+    tracker.baseline(snapshot(state([])));
+    tracker.live(snapshot(state(["T20", "S20"])));
+    expect(tracker.missingDetails).toBe(false);
+    // La cible annonce 3 fléchettes, mais le message ne contient que les deux premières.
+    expect(throws(tracker.live(snapshot(state(["T20", "S20"], { numThrows: 3 }))))).toEqual([]);
+    expect(tracker.missingDetails).toBe(true);
+    expect(throws(tracker.reconcile(snapshot(state(["T20", "S20", "D10"])))).map((t) => t.slot)).toEqual([2]);
+    expect(tracker.missingDetails).toBe(false);
+    // Message WebSocket encore incomplet : pas de retrait, pas de doublon.
+    expect(tracker.live(snapshot(state(["T20", "S20"], { numThrows: 3 })))).toEqual([]);
+    expect(tracker.live(snapshot(state(["T20", "S20", "D10"])))).toEqual([]);
+    // Le vrai retrait vide la cible : visite close avec 3 fléchettes, 3 annoncées.
+    const out = tracker.live(snapshot({ ...base, event: "Takeout finished", numThrows: 0 }));
+    expect(out).toEqual([expect.objectContaining({ kind: "takeout-finished", dartsOnBoard: 3, announced: 3 })]);
+  });
+
+  it("retrait après une fléchette annoncée mais jamais transmise : l'écart figure dans l'événement", () => {
+    const tracker = newTracker();
+    tracker.baseline(snapshot(state([])));
+    tracker.live(snapshot(state(["T20", "S20"])));
+    tracker.live(snapshot(state(["T20", "S20"], { numThrows: 3 })));
+    const out = tracker.live(snapshot({ ...base, event: "Takeout finished", numThrows: 0 }));
+    expect(out).toEqual([expect.objectContaining({ kind: "takeout-finished", dartsOnBoard: 2, announced: 3 })]);
+  });
+
+  it("retrait après deux fléchettes seulement détectées : rien d'annoncé de plus", () => {
+    const tracker = newTracker();
+    tracker.baseline(snapshot(state([])));
+    tracker.live(snapshot(state(["T20", "S20"])));
+    const out = tracker.live(snapshot({ ...base, event: "Takeout finished", numThrows: 0 }));
+    expect(out).toEqual([expect.objectContaining({ kind: "takeout-finished", dartsOnBoard: 2, announced: 2 })]);
+  });
+
   it("isole un lancer illisible sans bloquer les suivants", () => {
     const parsed = parseBoardState({ ...base, event: "Throw detected", numThrows: 2, throws: [{ segment: { number: 25, multiplier: 3 } }, simThrow({ segment: 5, multiplier: 1 })] });
     expect(parsed.ok && parsed.invalidThrows).toEqual(["lancer 1 : combinaison 25 × 3 impossible"]);

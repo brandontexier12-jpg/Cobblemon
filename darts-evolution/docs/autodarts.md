@@ -85,8 +85,12 @@ Règles appliquées (et testées) :
 3. **Correction par la cible** : même position, segment différent → la fléchette déjà comptée est corrigée
    (pas d'ajout).
 4. **Le retrait n'est jamais un impact** : `Takeout finished` (ou la disparition des fléchettes) termine la
-   visite. S'il manque des fléchettes (retrait après 1 ou 2), elles sont **comptées ratées** et restent
-   corrigeables. Un retrait sans aucune fléchette dans la visite est ignoré.
+   visite. S'il manque des fléchettes (retrait après 1 ou 2), elles sont **comptées ratées** ; un bandeau
+   jaune sous la visite permet de toucher « – » pour **saisir leur vraie valeur après coup** (la fléchette
+   est insérée dans la visite d'origine, la partie et les statistiques sont recalculées). Un retrait sans
+   aucune fléchette dans la visite est ignoré. Le journal enregistre la cause de chaque visite incomplète :
+   fléchette **non détectée** par la cible, **annoncée sans détail** (`numThrows` supérieur au nombre de
+   lancers transmis), ou **reçue mais écartée** par l'application.
 5. **Fléchettes en trop** : après une visite terminée (3 fléchettes, bust, checkout), une fléchette reçue
    avant le retrait est **ignorée** (jamais attribuée au joueur suivant) et signalée.
 6. **Reset manuel** (`Manual reset` sur le Board Manager) = fin de visite ; un reset demandé par
@@ -101,7 +105,10 @@ Règles appliquées (et testées) :
    fléchettes nouvelles sont ajoutées ; si la cible a été vidée pendant la coupure, une **alerte « gap »**
    est affichée (une visite a pu être jouée sans être reçue) — **aucun impact n'est inventé**.
 10. **Réconciliation** toutes les 20 s par HTTP : n'ajoute que des fléchettes manquantes, ne vide jamais la
-    cible (une réponse HTTP peut être plus ancienne qu'un message WebSocket).
+    cible (une réponse HTTP peut être plus ancienne qu'un message WebSocket). Quand un message annonce plus
+    de fléchettes (`numThrows`) qu'il n'en détaille, l'état est **relu aussitôt** (`GET /api/state`, 3 essais
+    sur environ 1,5 s) pour ne pas laisser le retrait arriver avant ; un message suivant encore incomplet
+    n'est pas pris pour un retrait.
 11. **Absence de données de lancer** (comportement v2 signalé) : détectée (`numThrows > 0` sans `throws`),
     affichée comme diagnostic ; rien n'est compté.
 12. **Simulation** : les impacts du mode test portent `simulated: true` / source `simulation` ; ils ne sont
@@ -116,6 +123,21 @@ Règles appliquées (et testées) :
 
 Le score reste calculé **uniquement par le serveur** ; la saisie manuelle reste disponible à tout moment
 (bouton « Passer en saisie manuelle » ; saisie d'une fléchette manquée par la détection).
+
+**Une seule partie reçoit les impacts** : la dernière lancée en mode Autodarts (ou reprise). En quittant une
+partie en cours par « Menu », l'application demande quoi en faire : **l'abandonner** (elle sort des parties
+en cours et des statistiques, et reste visible dans l'historique, filtre « Abandonnées ») ou **la garder pour
+plus tard** (elle n'est plus reliée à Autodarts ; « Reprendre » depuis l'accueil ou l'historique la relie à
+nouveau). Chaque changement de partie liée est inscrit au journal (`liaison`).
+
+### Diagnostic des fléchettes manquantes
+
+La page Intégration → Autodarts affiche le bilan des dernières visites jouées avec la cible réelle (mode
+test exclu) : visites complètes, fléchettes non détectées par les caméras, fléchettes reçues mais non
+comptées (avec le motif), fléchettes récupérées par relecture HTTP. Le bouton « Télécharger le journal »
+produit un fichier JSON (journal, bilan, version d'Autodarts — aucun mot de passe ni secret) à joindre à un
+signalement. Si les fléchettes « non détectées » dominent, la cause est côté caméras : recalibrer, vérifier
+l'éclairage, et les fléchettes groupées qui se masquent.
 
 ### Calibration des caméras depuis l'application
 

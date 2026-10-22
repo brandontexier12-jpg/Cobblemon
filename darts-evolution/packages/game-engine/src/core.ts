@@ -87,7 +87,7 @@ function completeVisit<C>(state: GameState<C>, reason: VisitEndReason): void {
 function throwDart<C>(
   state: GameState<C>,
   dart: Dart,
-  meta: { id?: string; source?: string; padded?: boolean; coords?: DartCoords },
+  meta: { id?: string; source?: string; padded?: boolean; paddedBy?: string; coords?: DartCoords },
 ): void {
   const rules = rulesOf(state);
   const { turn } = state;
@@ -115,6 +115,7 @@ function throwDart<C>(
   if (outcome.checkoutAttempt) thrown.checkoutAttempt = true;
   if (outcome.marks !== undefined) thrown.marks = outcome.marks;
   if (meta.padded) thrown.padded = true;
+  if (meta.paddedBy) thrown.paddedBy = meta.paddedBy;
   if (meta.id) thrown.eventId = meta.id;
   if (meta.source) thrown.source = meta.source;
   if (meta.coords) thrown.coords = { x: meta.coords.x, y: meta.coords.y };
@@ -165,7 +166,7 @@ export function applyEvent<C>(current: GameState<C>, event: GameEvent): GameStat
     throwDart(state, event.dart, { id: event.id, source: event.source, coords: event.coords });
   } else if (event.type === "next") {
     if (!state.turn.complete) {
-      while (!state.turn.complete) throwDart(state, MISS, { padded: true, source: event.source });
+      while (!state.turn.complete) throwDart(state, MISS, { padded: true, source: event.source, ...(event.id ? { paddedBy: event.id } : {}) });
     }
     if (!state.finished) advance(state);
   } else {

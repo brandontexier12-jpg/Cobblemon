@@ -133,6 +133,14 @@ export const CommandInput = z.discriminatedUnion("kind", [
     commandId: z.string().max(80).optional(),
     baseVersion: z.number().int().optional(),
   }),
+  z.object({
+    /** Saisie après coup d'une fléchette comptée ratée faute de détection (avant le « joueur suivant » qui l'a ajoutée). */
+    kind: z.literal("insert"),
+    paddedBy: z.string().max(80),
+    dart: DartSchema,
+    commandId: z.string().max(80).optional(),
+    baseVersion: z.number().int().optional(),
+  }),
   z.object({ kind: z.literal("abandon"), commandId: z.string().max(80).optional() }),
 ]);
 
@@ -511,6 +519,33 @@ export class MatchService extends EventEmitter {
             if (dropped > 0) notice = `${dropped} action(s) postérieure(s) annulée(s) : la partie se termine désormais plus tôt.`;
             break;
           }
+          case "insert": {
+            if (c.row.status === "abandoned") throw badRequest("La partie a été abandonnée.");
+            const index = c.events.findIndex((e) => e.id === raw.paddedBy && e.type === "next");
+            const visit = c.state.visits.find((v) => v.darts.some((d) => d.paddedBy === raw.paddedBy));
+            if (index < 0 || !visit) throw badRequest("Cette visite n'a pas de fléchette manquante à saisir.");
+            const player = c.players[visit.playerIndex];
+            if (player?.botAverage != null) throw badRequest(`Les fléchettes de ${player.name} sont lancées par le bot.`);
+            if (wasFinished) this.hooks.onReopened?.(matchId);
+            // La fléchette prend la place du « joueur suivant » dans le journal, qui est décalé d'un cran
+            // (avec tout ce qui suit) : au rejeu, elle complète la visite avant que celle-ci ne soit close.
+            const at = c.events[index]!.seq;
+            this.db.run("UPDATE match_events SET seq = seq + 1 WHERE match_id = $m AND seq >= $s", { $m: matchId, $s: at });
+            for (const e of c.events) if (e.seq >= at) e.seq += 1;
+            const row = this.insertEvent(c, {
+              id: randomUUID(),
+              seq: at,
+              type: "dart",
+              segment: raw.dart.segment,
+              multiplier: raw.dart.multiplier,
+              source,
+              external_id: null,
+            });
+            c.events.splice(index, 0, row);
+            const dropped = this.rebuild(c);
+            if (dropped > 0) notice = `${dropped} action(s) postérieure(s) annulée(s) : la partie se termine désormais plus tôt.`;
+            break;
+          }
           case "abandon": {
             if (c.row.status !== "active") throw badRequest("Seule une partie en cours peut être abandonnée.");
             c.row.status = "abandoned";
@@ -665,12 +700,27 @@ export class MatchService extends EventEmitter {
     });
   }
 
-  list(filters: { status?: MatchStatus; playerId?: string; mode?: string; category?: string; from?: string; to?: string; includeSimulation?: boolean; limit?: number; offset?: number } = {}) {
+  list(
+    filters: {
+      status?: MatchStatus;
+      hideAbandoned?: boolean;
+      playerId?: string;
+      mode?: string;
+      category?: string;
+      from?: string;
+      to?: string;
+      includeSimulation?: boolean;
+      limit?: number;
+      offset?: number;
+    } = {},
+  ) {
     const where: string[] = [];
     const params: Record<string, string | number> = {};
     if (filters.status) {
       where.push("m.status = $status");
       params.$status = filters.status;
+    } else if (filters.hideAbandoned) {
+      where.push("m.status <> 'abandoned'");
     }
     if (filters.mode) {
       where.push("m.mode = $mode");

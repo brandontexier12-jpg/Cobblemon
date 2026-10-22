@@ -18,12 +18,15 @@ export function HistoryPage() {
   const [page, setPage] = useState(0);
   const limit = 25;
   const list = useAsync(
-    () => api.get<{ total: number; items: MatchListItem[] }>(`/api/matches${qs({ playerId, mode, status, simulation: simulation || undefined, limit, offset: page * limit })}`),
+    () =>
+      api.get<{ total: number; items: MatchListItem[] }>(
+        `/api/matches${qs({ playerId, mode, status: status === "all" ? undefined : status, hideAbandoned: status === "" || undefined, simulation: simulation || undefined, limit, offset: page * limit })}`,
+      ),
     [playerId, mode, status, simulation, page],
   );
   return (
     <div className="space-y-5">
-      <PageHeader title="Historique" subtitle="Toutes les parties et séances, y compris interrompues." />
+      <PageHeader title="Historique" subtitle="Toutes les parties et séances, y compris interrompues (les parties abandonnées sont dans le filtre « Abandonnées »)." />
       <Card>
         <div className="grid gap-3 md:grid-cols-4">
           <Field label="Joueur">
@@ -48,10 +51,11 @@ export function HistoryPage() {
           </Field>
           <Field label="Statut">
             <select className={inputClass} value={status} onChange={(e) => (setStatus(e.target.value), setPage(0))}>
-              <option value="">Tous</option>
+              <option value="">Toutes sauf abandonnées</option>
               <option value="active">En cours / interrompues</option>
               <option value="finished">Terminées</option>
               <option value="abandoned">Abandonnées</option>
+              <option value="all">Toutes</option>
             </select>
           </Field>
           <div className="flex items-end">
@@ -121,7 +125,7 @@ export function MatchDetailPage() {
         subtitle={`${fmtDateTime(m.createdAt)} · ${STATUS_LABEL[m.status]}${m.finishedAt ? ` · terminée ${fmtDateTime(m.finishedAt)}` : ""}`}
         actions={
           <>
-            <Link to={`/partie/${m.id}`}>
+            <Link to={m.status === "active" ? `/partie/${m.id}?reprendre=1` : `/partie/${m.id}`}>
               <Button variant="primary" icon={m.status === "active" ? "play" : "edit"}>
                 {m.status === "active" ? "Reprendre" : "Ouvrir / corriger"}
               </Button>

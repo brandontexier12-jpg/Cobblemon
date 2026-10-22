@@ -132,7 +132,7 @@ export function VisitBar({
               dart={d}
               index={i}
               suggestion={suggestionFor(i)}
-              onClick={d && !d.padded && onDartClick ? () => onDartClick(d) : undefined}
+              onClick={d && (!d.padded || d.paddedBy) && onDartClick ? () => onDartClick(d) : undefined}
             />
           ))}
         </div>

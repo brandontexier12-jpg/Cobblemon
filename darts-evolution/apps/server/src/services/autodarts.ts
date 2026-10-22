@@ -21,6 +21,26 @@ export interface AutodartsNotice {
   at: string;
 }
 
+export interface AutodartsDiagnostic {
+  /** Visites closes par un retrait (complètes ou non). */
+  visits: number;
+  complete: number;
+  /** Visite incomplète : la cible n'a pas détecté toutes les fléchettes. */
+  notDetected: number;
+  /** Visite incomplète : fléchette annoncée par la cible sans détail transmis. */
+  detailMissing: number;
+  /** Visite incomplète : fléchette transmise mais non comptée par l'application. */
+  refused: number;
+  /** Visite incomplète enregistrée par une version antérieure (cause inconnue). */
+  unknown: number;
+  impacts: number;
+  recovered: number;
+  ignored: Record<string, number>;
+  invalid: number;
+  gaps: number;
+  verdict: { tone: "good" | "info" | "warning"; text: string }[];
+}
+
 export interface AutodartsOverview {
   status: ConnectionStatus;
   enabled: boolean;
@@ -85,8 +105,10 @@ export class AutodartsService extends EventEmitter {
   }
 
   bind(matchId: string | null): void {
-    if (this.boundMatchId === matchId) return;
+    const previous = this.boundMatchId;
+    if (previous === matchId) return;
     this.settings.setBoundMatchId(matchId);
+    this.journal("liaison", { previous }, matchId ? "partie liée à Autodarts" : "aucune partie liée", matchId);
     this.emit("status", this.overview());
   }
 
@@ -269,6 +291,84 @@ export class AutodartsService extends EventEmitter {
       }));
   }
 
+  /**
+   * Bilan des dernières visites jouées avec la cible réelle (simulation exclue) : visites complètes
+   * ou incomplètes et, pour ces dernières, la cause enregistrée au journal.
+   */
+  diagnostic(limit = 400): AutodartsDiagnostic {
+    const rows = this.db.all<{ kind: string; summary: string; outcome: string }>(
+      "SELECT kind, summary, outcome FROM autodarts_events WHERE simulated = 0 AND kind IN ('retrait', 'impact', 'invalide', 'coupure') ORDER BY id DESC LIMIT $limit",
+      { $limit: limit },
+    );
+    const d: AutodartsDiagnostic = {
+      visits: 0,
+      complete: 0,
+      notDetected: 0,
+      detailMissing: 0,
+      refused: 0,
+      unknown: 0,
+      impacts: 0,
+      recovered: 0,
+      ignored: {},
+      invalid: 0,
+      gaps: 0,
+      verdict: [],
+    };
+    for (const r of rows) {
+      const s = parseJson<Record<string, unknown>>(r.summary, {});
+      if (r.kind === "retrait") {
+        if (r.outcome === "joueur suivant") {
+          d.visits++;
+          d.complete++;
+        } else if (r.outcome.startsWith("visite incomplète")) {
+          d.visits++;
+          const announced = Number(s.announced ?? s.dartsOnBoard ?? 0);
+          const onBoard = Number(s.dartsOnBoard ?? 0);
+          const counted = Number(s.counted ?? onBoard);
+          if (announced > onBoard) d.detailMissing++;
+          else if (onBoard > counted) d.refused++;
+          else d.notDetected++;
+        } else if (r.outcome.startsWith("visite terminée avec")) {
+          // Entrée d'une version antérieure : la cause n'était pas enregistrée.
+          d.visits++;
+          d.unknown++;
+        }
+      } else if (r.kind === "impact") {
+        d.impacts++;
+        if (s.recovered) d.recovered++;
+        if (r.outcome.startsWith("ignoré") || r.outcome.startsWith("refusé")) {
+          const reason = r.outcome.replace(/^(ignoré|refusé) : /, "").replace(/tour de .+$/, "tour d'un bot");
+          d.ignored[reason] = (d.ignored[reason] ?? 0) + 1;
+        }
+      } else if (r.kind === "invalide") d.invalid++;
+      else if (r.kind === "coupure") d.gaps++;
+    }
+    const incomplete = d.visits - d.complete;
+    if (d.visits === 0) {
+      d.verdict.push({ tone: "info", text: "Aucune visite jouée avec la cible réelle pour l'instant : jouez quelques visites puis revenez ici." });
+      return d;
+    }
+    if (incomplete === 0) d.verdict.push({ tone: "good", text: `Les ${d.visits} dernières visites ont toutes été reçues avec leurs 3 fléchettes.` });
+    if (d.notDetected > 0) {
+      d.verdict.push({
+        tone: d.notDetected / d.visits >= 0.1 ? "warning" : "info",
+        text: `${d.notDetected} visite(s) sur ${d.visits} : Autodarts n'a pas détecté toutes les fléchettes avant le retrait (rien n'a été reçu puis écarté par l'application). Cause probable côté caméras : recalibrez, vérifiez l'éclairage, et les fléchettes groupées qui se masquent (la 3e est la plus souvent cachée par les deux premières).`,
+      });
+    }
+    if (d.detailMissing > 0) {
+      d.verdict.push({
+        tone: "warning",
+        text: `${d.detailMissing} visite(s) : Autodarts a annoncé des fléchettes sans en transmettre le détail, même en relisant son état. Téléchargez le journal et vérifiez la version du Board Manager.`,
+      });
+    }
+    if (d.refused > 0) {
+      d.verdict.push({ tone: "warning", text: `${d.refused} visite(s) : des fléchettes reçues n'ont pas été comptées (voir « Impacts écartés » ci-dessous).` });
+    }
+    if (d.unknown > 0) d.verdict.push({ tone: "info", text: `${d.unknown} visite(s) incomplète(s) enregistrée(s) par une version précédente, sans cause détaillée.` });
+    if (d.recovered > 0) d.verdict.push({ tone: "info", text: `${d.recovered} fléchette(s) absente(s) des messages en direct ont été récupérées en relisant l'état de la cible.` });
+    return d;
+  }
+
   private journal(kind: string, summary: Record<string, unknown>, outcome: string, matchId: string | null): void {
     this.db.run(
       `INSERT INTO autodarts_events (received_at, kind, provider, simulated, summary, match_id, outcome)
@@ -328,7 +428,7 @@ export class AutodartsService extends EventEmitter {
       case "throw-corrected":
         return this.onCorrection(e.throw, e.previous);
       case "takeout-finished":
-        return this.onVisitBoundary("retrait", e.dartsOnBoard, `${e.at}:${e.boardVisit}`);
+        return this.onVisitBoundary("retrait", e.dartsOnBoard, `${e.at}:${e.boardVisit}`, e.announced ?? e.dartsOnBoard);
       case "reset":
         if (e.own) {
           this.journal("reset", { own: true }, "ignoré (reset demandé par l'application)", this.boundMatchId);
@@ -355,7 +455,16 @@ export class AutodartsService extends EventEmitter {
   }
 
   private summary(t: DetectedThrow): Record<string, unknown> {
-    return { eventId: t.eventId, segment: t.segmentName, dart: dartDisplay(t.dart), score: t.score, slot: t.slot, visit: t.boardVisit, bed: t.bed ?? null };
+    return {
+      eventId: t.eventId,
+      segment: t.segmentName,
+      dart: dartDisplay(t.dart),
+      score: t.score,
+      slot: t.slot,
+      visit: t.boardVisit,
+      bed: t.bed ?? null,
+      ...(t.recovered ? { recovered: true } : {}),
+    };
   }
 
   private onThrow(t: DetectedThrow): void {
@@ -430,36 +539,54 @@ export class AutodartsService extends EventEmitter {
   }
 
   /** Fin de visite détectée sur la cible (retrait des fléchettes ou reset manuel). */
-  private onVisitBoundary(kind: "retrait" | "reset", dartsOnBoard: number, key: string): void {
+  private onVisitBoundary(kind: "retrait" | "reset", dartsOnBoard: number, key: string, announced = dartsOnBoard): void {
+    const detail = { dartsOnBoard, announced };
     if (this.calibrationQuiet) {
-      this.journal(kind, { dartsOnBoard }, "ignoré : calibration des caméras en cours", this.boundMatchId);
+      this.journal(kind, detail, "ignoré : calibration des caméras en cours", this.boundMatchId);
       return;
     }
     const target = this.target();
     if ("reason" in target) {
-      this.journal(kind, { dartsOnBoard }, `ignoré : ${target.reason}`, target.matchId);
+      this.journal(kind, detail, `ignoré : ${target.reason}`, target.matchId);
       return;
     }
     const state = this.matches.getState(target.matchId);
     const bot = this.botOnTurn(target.matchId, state.turn.playerIndex);
     if (bot) {
-      this.journal(kind, { dartsOnBoard }, `ignoré : tour de ${bot} (il passe la main seul)`, target.matchId);
+      this.journal(kind, detail, `ignoré : tour de ${bot} (il passe la main seul)`, target.matchId);
       return;
     }
     if (!state.turn.complete && state.turn.darts.length === 0) {
-      this.journal(kind, { dartsOnBoard }, "ignoré : aucune fléchette dans la visite en cours", target.matchId);
+      this.journal(kind, detail, "ignoré : aucune fléchette dans la visite en cours", target.matchId);
       return;
     }
     const early = !state.turn.complete;
+    const counted = state.turn.darts.length;
     try {
       this.matches.command(target.matchId, { kind: "next", source: this.simulationActive ? "simulation" : "autodarts", commandId: `ad:${kind}:${key}` });
-      const outcome = early
-        ? `visite terminée avec ${state.turn.darts.length} fléchette(s) détectée(s), les autres comptées ratées`
-        : "joueur suivant";
-      this.journal(kind, { dartsOnBoard }, outcome, target.matchId);
-      if (early) this.notice(target.matchId, "info", `Retrait détecté après ${state.turn.darts.length} fléchette(s) : les fléchettes manquantes sont comptées ratées (corrigeables).`);
+      // Le journal distingue les causes d'une visite incomplète : fléchette non détectée par la
+      // cible, détectée mais sans détail transmis, ou transmise mais refusée par l'application.
+      const outcome = !early
+        ? "joueur suivant"
+        : announced > dartsOnBoard
+          ? `visite incomplète : ${announced} fléchette(s) annoncée(s) par la cible, ${dartsOnBoard} transmise(s), ${counted} comptée(s)`
+          : dartsOnBoard > counted
+            ? `visite incomplète : ${dartsOnBoard} fléchette(s) transmise(s) mais ${counted} comptée(s)`
+            : `visite incomplète : la cible n'a détecté que ${dartsOnBoard} fléchette(s)`;
+      this.journal(kind, { ...detail, counted, early }, outcome, target.matchId);
+      if (early) {
+        const missing = 3 - counted;
+        const fix = "touchez « – » dans le bandeau jaune pour saisir sa vraie valeur.";
+        this.notice(
+          target.matchId,
+          "warning",
+          announced > dartsOnBoard
+            ? `Autodarts a annoncé ${announced} fléchettes mais n'en a transmis que ${dartsOnBoard} : ${missing > 1 ? "les fléchettes manquantes sont comptées ratées" : "la fléchette manquante est comptée ratée"} — ${fix}`
+            : `Autodarts n'a détecté que ${counted} fléchette(s) avant le retrait : ${missing > 1 ? "les autres sont comptées ratées" : "la dernière est comptée ratée"} — ${fix} Si cela arrive souvent, recalibrez les caméras.`,
+        );
+      }
     } catch (error) {
-      this.journal(kind, { dartsOnBoard }, `refusé : ${(error as Error).message}`, target.matchId);
+      this.journal(kind, detail, `refusé : ${(error as Error).message}`, target.matchId);
     }
   }
 }

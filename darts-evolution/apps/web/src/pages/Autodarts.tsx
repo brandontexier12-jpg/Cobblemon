@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { autodartsLabel } from "../components/AutodartsStatus";
 import { CalibrateButton } from "../components/CalibrateButton";
 import { Icon } from "../components/Icon";
-import { Badge, Button, Card, Field, inputClass, PageHeader, Segmented, Toggle, useUi } from "../components/ui";
+import { Badge, Button, Card, Field, inputClass, PageHeader, Segmented, StatTile, Toggle, useUi } from "../components/ui";
 import { api } from "../lib/api";
 import { useAppState } from "../lib/app-state";
 import { fmtDateTime } from "../lib/format";
@@ -263,6 +263,8 @@ export function AutodartsPage() {
         )}
       </Card>
 
+      <DiagnosticCard version={journal.data?.[0]?.id ?? 0} />
+
       <Card title="Journal des événements" action={<Button size="sm" variant="ghost" icon="refresh" onClick={journal.reload}>Actualiser</Button>}>
         <div className="max-h-[480px] overflow-auto">
           <table className="w-full min-w-[640px] text-sm">
@@ -310,6 +312,75 @@ export function AutodartsPage() {
 }
 
 /** Calibration automatique des caméras par l'API locale d'Autodarts. */
+interface Diagnostic {
+  visits: number;
+  complete: number;
+  notDetected: number;
+  detailMissing: number;
+  refused: number;
+  unknown: number;
+  impacts: number;
+  recovered: number;
+  ignored: Record<string, number>;
+  invalid: number;
+  gaps: number;
+  verdict: { tone: "good" | "info" | "warning"; text: string }[];
+}
+
+const VERDICT_TONE = { good: "border-good/40 bg-good/10", info: "border-ink-600 bg-ink-900", warning: "border-warning/40 bg-warning/10" } as const;
+
+/** Bilan des dernières visites avec la cible réelle : où se perdent les fléchettes manquantes. */
+function DiagnosticCard({ version }: { version: number }) {
+  const diag = useAsync(() => api.get<Diagnostic>("/api/autodarts/diagnostic"), [version]);
+  const d = diag.data;
+  const ignored = d ? Object.entries(d.ignored).sort((a, b) => b[1] - a[1]) : [];
+  return (
+    <Card
+      title="Diagnostic des fléchettes manquantes"
+      action={
+        <a href="/api/autodarts/journal?limit=1000&download=1" download>
+          <Button size="sm" variant="ghost" icon="download">
+            Télécharger le journal
+          </Button>
+        </a>
+      }
+    >
+      <p className="mb-3 text-sm text-ink-300">
+        Sur les dernières visites jouées avec la cible réelle (mode test exclu) : visites reçues avec leurs 3 fléchettes, et pour les autres, la cause enregistrée.
+      </p>
+      {d && (
+        <>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <StatTile label="Visites" value={d.visits} />
+            <StatTile label="Complètes" value={d.complete} hint={d.visits ? `${Math.round((d.complete / d.visits) * 100)} %` : undefined} />
+            <StatTile label="Non détectées" value={d.notDetected} hint="par les caméras" />
+            <StatTile label="Écartées" value={d.refused + d.detailMissing} hint="reçues mais non comptées" />
+          </div>
+          <ul className="mt-3 space-y-2">
+            {d.verdict.map((v, i) => (
+              <li key={i} className={`rounded-xl border px-3 py-2 text-sm ${VERDICT_TONE[v.tone]}`}>
+                {v.text}
+              </li>
+            ))}
+          </ul>
+          {ignored.length > 0 && (
+            <div className="mt-3 text-sm">
+              <p className="mb-1 text-ink-400">Impacts écartés par l'application :</p>
+              <ul className="space-y-0.5 text-ink-300">
+                {ignored.map(([reason, n]) => (
+                  <li key={reason}>
+                    {n} × {reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
 function CalibrationCard() {
   const { autodarts } = useAppState();
   const cameras = useAsync(() => api.get<{ count: number | null }>("/api/autodarts/cameras"), [autodarts?.status.state]);

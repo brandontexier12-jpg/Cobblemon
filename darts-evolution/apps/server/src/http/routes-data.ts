@@ -48,7 +48,7 @@ export function registerDataRoutes(app: FastifyInstance, ctx: AppContext): void 
       player: playerId ? ctx.players.get(playerId) : null,
       stats: playerId ? ctx.stats.summary({ playerId }) : null,
       progression: playerId ? ctx.stats.series({ playerId, from: since }, "day").series : [],
-      recent: ctx.matches.list({ playerId: playerId ?? undefined, limit: 6 }).items,
+      recent: ctx.matches.list({ playerId: playerId ?? undefined, limit: 6, hideAbandoned: true }).items,
       active: ctx.matches.list({ status: "active", limit: 10, includeSimulation: true }).items,
       autodarts: ctx.autodarts.overview(),
     };

@@ -45,6 +45,8 @@ export class BoardTracker {
   private darts: (TrackedDart | null)[] = [];
   private visit = 0;
   private ownResets = 0;
+  /** Plus grand « numThrows » annoncé pendant la visite (peut dépasser les fléchettes transmises). */
+  private announced = 0;
   /** Fléchettes présentes sur la cible au moment de la première connexion (non comptées). */
   baselineDarts = 0;
 
@@ -105,9 +107,10 @@ export class BoardTracker {
       if (own) this.ownResets--;
       events.push({ kind: "reset", at, own, boardVisit: this.visit });
     } else {
-      events.push({ kind: "takeout-finished", at, boardVisit: this.visit, dartsOnBoard });
+      events.push({ kind: "takeout-finished", at, boardVisit: this.visit, dartsOnBoard, announced: Math.max(this.announced, dartsOnBoard) });
     }
     this.darts = [];
+    this.announced = 0;
     this.visit++;
   }
 
@@ -139,14 +142,26 @@ export class BoardTracker {
     const current = next.throws;
     const known = this.darts.length;
     const manualReset = next.event === "Manual reset" && (prev.event !== "Manual reset" || known > 0);
+    // Message en retard sur une fléchette déjà relue par HTTP : la cible annonce toujours toutes
+    // les fléchettes connues, seules les dernières manquent au message — ce n'est pas un retrait.
+    const lagging =
+      current.length > 0 &&
+      current.length < known &&
+      next.numThrows >= known &&
+      next.event !== "Takeout finished" &&
+      current.every((now, slot) => {
+        const tracked = this.darts[slot];
+        return !tracked || !now || sameSegment(tracked.board, now);
+      });
     if (manualReset) {
       this.clearBoard(events, "reset", known);
-    } else if (current.length < known) {
+    } else if (current.length < known && !lagging) {
       // Fléchettes disparues : retrait terminé (ou cible vidée sans événement explicite).
       this.clearBoard(events, "takeout", known);
     } else if (next.event === "Takeout finished" && prev.event !== "Takeout finished" && known === 0) {
       // Retrait sans fléchette détectée (ex. trois fléchettes hors cible non détectées).
-      events.push({ kind: "takeout-finished", at, boardVisit: this.visit, dartsOnBoard: 0 });
+      events.push({ kind: "takeout-finished", at, boardVisit: this.visit, dartsOnBoard: 0, announced: this.announced });
+      this.announced = 0;
       this.visit++;
     }
 
@@ -174,8 +189,14 @@ export class BoardTracker {
       }
     }
     for (let slot = this.darts.length; slot < current.length; slot++) this.newDart(slot, current[slot] ?? null, events);
+    this.announced = Math.max(this.announced, next.numThrows);
     this.last = next;
     return events;
+  }
+
+  /** La cible annonce plus de fléchettes qu'elle n'en a transmis : leur détail est à relire par HTTP. */
+  get missingDetails(): boolean {
+    return !!this.last && this.last.numThrows > this.darts.length;
   }
 
   /**
@@ -226,6 +247,7 @@ export class BoardTracker {
     if (!prefixMatches) return [];
     const events: ScoringEvent[] = [];
     for (let slot = this.darts.length; slot < current.length; slot++) this.newDart(slot, current[slot] ?? null, events);
+    for (const e of events) if (e.kind === "throw") e.throw.recovered = true;
     this.last = next;
     return events;
   }

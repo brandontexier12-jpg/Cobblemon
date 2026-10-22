@@ -69,6 +69,7 @@ export class AutodartsScoringProvider implements ScoringProvider {
   private pingTimer: NodeJS.Timeout | null = null;
   private pongTimer: NodeJS.Timeout | null = null;
   private reconcileTimer: NodeJS.Timeout | null = null;
+  private fetchingDetails = false;
   private readonly throwListeners = new Set<(t: DetectedThrow) => void>();
   private readonly eventListeners = new Set<(e: ScoringEvent) => void>();
   private status: ConnectionStatus;
@@ -235,7 +236,7 @@ export class AutodartsScoringProvider implements ScoringProvider {
     });
     ws.on("message", (data, isBinary) => {
       if (isBinary || ws !== this.ws || !this.online) return;
-      this.handleMessage(data.toString());
+      this.handleMessage(ws, data.toString());
     });
     ws.on("pong", () => {
       if (this.pongTimer) clearTimeout(this.pongTimer);
@@ -283,7 +284,7 @@ export class AutodartsScoringProvider implements ScoringProvider {
     }
   }
 
-  private handleMessage(text: string): void {
+  private handleMessage(ws: WebSocket, text: string): void {
     let json: unknown;
     try {
       json = JSON.parse(text);
@@ -306,6 +307,7 @@ export class AutodartsScoringProvider implements ScoringProvider {
     const events = this.tracker.live(parsed.value);
     this.updateFromSnapshot(parsed.value);
     this.emit([...invalid, ...events]);
+    if (this.tracker.missingDetails) this.fetchMissingDetails(ws);
   }
 
   private schedulePing(ws: WebSocket): void {
@@ -320,6 +322,29 @@ export class AutodartsScoringProvider implements ScoringProvider {
       }, timeout);
       this.schedulePing(ws);
     }, interval);
+  }
+
+  /**
+   * La cible annonce une fléchette (numThrows) sans son détail dans le message : l'état est relu
+   * aussitôt par HTTP (3 essais rapprochés), sans attendre la réconciliation périodique — sinon le
+   * retrait des fléchettes peut arriver avant et la fléchette serait comptée ratée.
+   */
+  private fetchMissingDetails(ws: WebSocket, attempt = 0): void {
+    if (this.fetchingDetails && attempt === 0) return;
+    this.fetchingDetails = true;
+    setTimeout(async () => {
+      try {
+        if (ws !== this.ws || !this.online || !this.tracker.missingDetails) return;
+        const events = this.tracker.reconcile(await this.client.getState());
+        if (events.length) this.log.info("Détail de fléchette récupéré par HTTP.", { count: events.length });
+        this.emit(events);
+      } catch (error) {
+        this.log.debug("Relecture de l'état impossible.", { code: classifyError(error).code });
+      } finally {
+        if (attempt < 2 && ws === this.ws && this.tracker.missingDetails) this.fetchMissingDetails(ws, attempt + 1);
+        else this.fetchingDetails = false;
+      }
+    }, 250 + attempt * 350);
   }
 
   private scheduleReconcile(ws: WebSocket): void {

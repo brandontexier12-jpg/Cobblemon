@@ -5,6 +5,7 @@ import { requireAdmin, SESSION_COOKIE, type AppContext } from "../context.js";
 import { MIGRATIONS } from "../db/migrations.js";
 import { badRequest } from "../errors.js";
 import { BackupSettings, GeneralSettings } from "../services/settings.js";
+import { APP_VERSION } from "../version.js";
 
 /** Santé, authentification, réglages, sauvegardes, exports, Autodarts. */
 export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext): void {
@@ -138,10 +139,25 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext): void
       .parse(req.body ?? {});
     return ctx.autodarts.test(body);
   });
-  app.get("/api/autodarts/journal", async (req) => {
-    const q = z.object({ limit: z.coerce.number().int().min(1).max(1000).default(100) }).parse(req.query);
-    return ctx.autodarts.journalList(q.limit);
+  app.get("/api/autodarts/journal", async (req, reply) => {
+    const q = z.object({ limit: z.coerce.number().int().min(1).max(1000).default(100), download: z.literal("1").optional() }).parse(req.query);
+    if (!q.download) return ctx.autodarts.journalList(q.limit);
+    // Fichier à joindre à un signalement : journal et état de la connexion (aucun secret n'y figure).
+    const overview = ctx.autodarts.overview();
+    const file = {
+      exportedAt: new Date().toISOString(),
+      appVersion: APP_VERSION,
+      autodarts: { state: overview.status.state, version: overview.status.version ?? null, generation: overview.status.generation ?? null },
+      diagnostic: ctx.autodarts.diagnostic(),
+      journal: ctx.autodarts.journalList(1000),
+    };
+    const stamp = file.exportedAt.slice(0, 19).replace(/[:T]/g, "-");
+    return reply
+      .header("content-type", "application/json; charset=utf-8")
+      .header("content-disposition", `attachment; filename="journal-autodarts-${stamp}.json"`)
+      .send(JSON.stringify(file, null, 2));
   });
+  app.get("/api/autodarts/diagnostic", async () => ctx.autodarts.diagnostic());
   app.post("/api/autodarts/reset-board", async () => {
     await ctx.autodarts.resetBoard();
     return { ok: true };

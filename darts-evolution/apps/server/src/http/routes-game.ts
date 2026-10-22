@@ -73,6 +73,7 @@ export function registerGameRoutes(app: FastifyInstance, ctx: AppContext): void 
     const q = z
       .object({
         status: z.enum(["active", "finished", "abandoned"]).optional(),
+        hideAbandoned: z.coerce.boolean().optional(),
         playerId: z.string().uuid().optional(),
         mode: z.string().max(40).optional(),
         category: z.enum(["game", "training"]).optional(),
@@ -105,6 +106,16 @@ export function registerGameRoutes(app: FastifyInstance, ctx: AppContext): void 
     const snapshot = ctx.matches.setInputMode(matchId, mode);
     if (mode === "autodarts" && snapshot.match.status === "active") ctx.autodarts.bind(matchId);
     else if (ctx.autodarts.boundMatchId === matchId) ctx.autodarts.bind(null);
+    return snapshot;
+  });
+
+  /**
+   * Quitter une partie sans la terminer (« garder pour plus tard ») : elle reste en cours mais n'est
+   * plus liée à Autodarts, pour que la cible n'alimente pas une partie que personne ne regarde.
+   */
+  app.post("/api/matches/:id/leave", async (req) => {
+    const snapshot = ctx.matches.get(id.parse(req.params).id);
+    if (ctx.autodarts.boundMatchId === snapshot.match.id) ctx.autodarts.bind(null);
     return snapshot;
   });
 

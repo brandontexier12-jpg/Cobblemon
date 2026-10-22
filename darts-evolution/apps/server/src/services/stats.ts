@@ -55,7 +55,7 @@ interface VisitRow {
   played_at: string;
 }
 
-/** Chargement des données statistiques réelles (les parties simulées sont toujours exclues). */
+/** Chargement des données statistiques réelles (parties simulées et abandonnées exclues). */
 export class StatsService {
   constructor(
     private readonly db: Database,
@@ -63,7 +63,8 @@ export class StatsService {
   ) {}
 
   private where(filter: StatsFilter, alias: string, dateColumn: string) {
-    const clauses = ["m.is_simulation = 0"];
+    // Parties simulées et parties abandonnées exclues (ces dernières restent dans l'historique).
+    const clauses = ["m.is_simulation = 0", "m.status <> 'abandoned'"];
     const params: Record<string, string> = {};
     if (filter.playerId) {
       clauses.push(`${alias}.player_id = $player`);

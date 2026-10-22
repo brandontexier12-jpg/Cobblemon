@@ -2,12 +2,16 @@ import { Link } from "react-router-dom";
 import { AutodartsPill } from "../components/AutodartsStatus";
 import { TrendChart } from "../components/charts";
 import { Icon } from "../components/Icon";
-import { Badge, Button, Card, EmptyState, ErrorBox, PlayerAvatar, ProgressBar, Spinner, StatTile } from "../components/ui";
+import { Badge, Button, Card, EmptyState, ErrorBox, PlayerAvatar, ProgressBar, Spinner, StatTile, useUi } from "../components/ui";
 import { api, qs } from "../lib/api";
 import { useAppState } from "../lib/app-state";
 import { fmtBucket, fmtDateTime, fmtInt, fmtNumber, fmtPercent } from "../lib/format";
 import { useAsync } from "../lib/hooks";
 import type { AutodartsOverview, MatchListItem, Player, SeriesPoint, StatsSummary } from "../lib/types";
+
+/** Conséquences d'un abandon, rappelées à chaque confirmation. */
+export const ABANDON_MESSAGE =
+  "Elle quitte les parties en cours et ne compte plus dans les statistiques. Elle reste consultable dans l'historique (filtre « Abandonnées »).";
 
 interface HomeData {
   player: Player | null;
@@ -18,9 +22,12 @@ interface HomeData {
   autodarts: AutodartsOverview;
 }
 
-export function MatchLine({ m }: { m: MatchListItem }) {
-  return (
-    <Link to={m.status === "active" ? `/partie/${m.id}` : `/historique/${m.id}`} className="press flex items-center gap-3 rounded-xl bg-ink-900 px-3 py-2.5 hover:bg-ink-800">
+export function MatchLine({ m, onAbandon }: { m: MatchListItem; onAbandon?: () => void }) {
+  const line = (
+    <Link
+      to={m.status === "active" ? `/partie/${m.id}?reprendre=1` : `/historique/${m.id}`}
+      className="press flex min-w-0 flex-1 items-center gap-3 rounded-xl bg-ink-900 px-3 py-2.5 hover:bg-ink-800"
+    >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="font-semibold">{m.modeName}</span>
@@ -35,10 +42,18 @@ export function MatchLine({ m }: { m: MatchListItem }) {
       <span className="shrink-0 text-xs text-ink-400">{fmtDateTime(m.createdAt)}</span>
     </Link>
   );
+  if (!onAbandon) return line;
+  return (
+    <div className="flex items-stretch gap-2">
+      {line}
+      <Button variant="ghost" icon="x" onClick={onAbandon} aria-label="Abandonner cette partie" title="Abandonner cette partie" />
+    </div>
+  );
 }
 
 export function HomePage() {
   const { activePlayerId, players, setActivePlayer, autodarts } = useAppState();
+  const { confirm, toast } = useUi();
   const home = useAsync(() => api.get<HomeData>(`/api/home${qs({ playerId: activePlayerId })}`), [activePlayerId]);
 
   if (home.error) return <ErrorBox message={home.error} onRetry={home.reload} />;
@@ -117,7 +132,19 @@ export function HomePage() {
         <Card title="Parties en cours" action={<span className="text-sm text-ink-400">Reprenez là où vous vous êtes arrêté</span>}>
           <div className="space-y-2">
             {active.map((m) => (
-              <MatchLine key={m.id} m={m} />
+              <MatchLine
+                key={m.id}
+                m={m}
+                onAbandon={async () => {
+                  if (!(await confirm({ title: "Abandonner cette partie ?", message: ABANDON_MESSAGE, confirmLabel: "Abandonner", danger: true }))) return;
+                  try {
+                    await api.post(`/api/matches/${m.id}/commands`, { kind: "abandon" });
+                    home.reload();
+                  } catch (e) {
+                    toast((e as Error).message, "critical");
+                  }
+                }}
+              />
             ))}
           </div>
         </Card>

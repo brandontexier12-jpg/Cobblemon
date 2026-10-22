@@ -3,7 +3,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { Database } from "../src/db/database.js";
 import { MIGRATIONS } from "../src/db/migrations.js";
-import { createPlayers, removeDir, startTestApp, throwDarts, type TestApp } from "./helpers.js";
+import { createPlayers, dart, removeDir, startTestApp, throwDarts, type TestApp } from "./helpers.js";
 
 const apps: TestApp[] = [];
 const dirs: string[] = [];
@@ -85,6 +85,50 @@ describe("partie X01 complète", () => {
     await throwDarts(app, match.id, "S1", "S1");
     const stats = await app.json("GET", `/api/stats/summary?playerId=${a}`);
     expect(stats.summary.x01.points).toBe(57 + 2);
+  });
+
+  it("saisit après coup les fléchettes comptées ratées, jusqu'à une sortie qui termine la partie", async () => {
+    const first = await open();
+    const [a, b] = await createPlayers(first, "Alice", "Bob");
+    const { match } = await first.json("POST", "/api/matches", { mode: "x01", options: { startScore: 101 }, playerIds: [a, b] });
+    const url = `/api/matches/${match.id}/commands`;
+    let r = await throwDarts(first, match.id, "T20", "next", "S1", "S1", "S1", "S1");
+    const paddedBy = r.snapshot.view.recentVisits[0].darts[1].paddedBy;
+    expect(r.snapshot.view.recentVisits[0].darts.map((d: any) => !!d.padded)).toEqual([false, true, true]);
+    // La première fléchette manquante est saisie : la visite garde une fléchette comptée ratée.
+    r = await first.json("POST", url, { kind: "insert", paddedBy, dart: dart("S1") });
+    expect(r.snapshot.view.recentVisits[0].darts.map((d: any) => d.label)).toEqual(["T20", "S1", "MISS"]);
+    expect(r.snapshot.view.players.map((p: any) => p.main)).toEqual(["39", "98"]);
+    // La seconde fléchette manquante était une sortie : la partie se termine, la suite est annulée.
+    r = await first.json("POST", url, { kind: "insert", paddedBy, dart: dart("D20") });
+    expect(r.notice).toBe("5 action(s) postérieure(s) annulée(s) : la partie se termine désormais plus tôt.");
+    expect(r.snapshot.match).toMatchObject({ status: "finished", winnerIds: [a] });
+    expect(r.snapshot.view.recentVisits).toHaveLength(1);
+    // L'ordre du journal est enregistré en base : il survit au redémarrage.
+    await first.close();
+    apps.pop();
+    const second = await open({}, first.dir);
+    const reloaded = await second.json("GET", `/api/matches/${match.id}`);
+    expect(reloaded.match.status).toBe("finished");
+    expect(reloaded.view.recentVisits[0].darts.map((d: any) => d.label)).toEqual(["T20", "S1", "D20"]);
+    const stats = await second.json("GET", `/api/stats/summary?playerId=${a}`);
+    expect(stats.summary.x01).toMatchObject({ darts: 3, points: 101, checkouts: 1 });
+  });
+
+  it("une partie abandonnée reste dans l'historique mais sort des statistiques", async () => {
+    const app = await open();
+    const [a] = await createPlayers(app, "Alice");
+    const kept = (await app.json("POST", "/api/matches", { mode: "x01", options: { startScore: 501 }, playerIds: [a] })).match;
+    await throwDarts(app, kept.id, "S20", "S20", "S20");
+    const dropped = (await app.json("POST", "/api/matches", { mode: "x01", options: { startScore: 501 }, playerIds: [a] })).match;
+    await throwDarts(app, dropped.id, "T20", "T20", "T20");
+    expect((await app.json("GET", `/api/stats/summary?playerId=${a}`)).summary.x01.points).toBe(240);
+    await app.json("POST", `/api/matches/${dropped.id}/commands`, { kind: "abandon" });
+    expect((await app.json("GET", `/api/stats/summary?playerId=${a}`)).summary.x01).toMatchObject({ points: 60, darts: 3 });
+    expect((await app.json("GET", "/api/matches")).items.map((m: any) => m.id)).toContain(dropped.id);
+    expect((await app.json("GET", "/api/matches?hideAbandoned=1")).items.map((m: any) => m.id)).toEqual([kept.id]);
+    expect((await app.json("GET", "/api/matches?status=abandoned")).items.map((m: any) => m.id)).toEqual([dropped.id]);
+    expect((await app.json("GET", `/api/home?playerId=${a}`)).recent.map((m: any) => m.id)).toEqual([kept.id]);
   });
 
   it("idempotence des commandes et conflit de version", async () => {

@@ -136,6 +136,28 @@ describe("AutodartsScoringProvider (contre le simulateur)", () => {
     expect(result).toMatchObject({ ok: true, version: "1.0.7", generation: 1, running: true, dartsOnBoard: 1, throwDataAvailable: true, websocket: true });
   });
 
+  it("relit aussitôt par HTTP une fléchette annoncée sans détail, avant le retrait", async () => {
+    const { sim, provider, throws, events } = await setup();
+    await provider.connect();
+    await connected(provider);
+    sim.throwDart("T20");
+    sim.throwDart("S20");
+    sim.throwDart("D10", { lateDetail: true });
+    // Réconciliation périodique réglée à 60 s : seule la relecture immédiate peut la récupérer.
+    await vi.waitFor(() => expect(throws).toHaveLength(3), { timeout: 2000 });
+    expect(throws.map((t) => [t.slot, t.score])).toEqual([
+      [0, 60],
+      [1, 20],
+      [2, 20],
+    ]);
+    sim.repeatLastMessage(); // message encore incomplet : ni retrait ni doublon
+    await new Promise((r) => setTimeout(r, 100));
+    expect(events.some((e) => e.kind === "takeout-finished")).toBe(false);
+    sim.takeout();
+    await vi.waitFor(() => expect(events.find((e) => e.kind === "takeout-finished")).toMatchObject({ dartsOnBoard: 3, announced: 3 }));
+    expect(throws).toHaveLength(3);
+  });
+
   it("avertit quand le Board Manager ne transmet pas le détail des lancers", async () => {
     const { sim, provider, throws } = await setup({ omitThrowData: true });
     await provider.connect();

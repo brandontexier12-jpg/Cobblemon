@@ -159,8 +159,10 @@ export class BoardManagerSimulator {
     return s;
   }
 
-  private broadcast(): void {
-    this.lastMessage = JSON.stringify({ type: "state", data: this.publicState() });
+  private broadcast(adjust?: (state: SimState) => void): void {
+    const data = this.publicState();
+    adjust?.(data);
+    this.lastMessage = JSON.stringify({ type: "state", data });
     for (const ws of this.sockets) ws.send(this.lastMessage);
   }
 
@@ -174,8 +176,11 @@ export class BoardManagerSimulator {
     for (const ws of this.sockets) ws.send(text);
   }
 
-  /** Une fléchette plantée (ou ratée) sur la cible. */
-  throwDart(input: Dart | string, options: { bouncer?: boolean } = {}): void {
+  /**
+   * Une fléchette plantée (ou ratée) sur la cible. `lateDetail` : le message WebSocket annonce la
+   * fléchette (numThrows) sans son détail, que seul GET /api/state contient (cas à couvrir côté client).
+   */
+  throwDart(input: Dart | string, options: { bouncer?: boolean; lateDetail?: boolean } = {}): void {
     const dart = typeof input === "string" ? parseDart(input) : input;
     if (!dart) throw new Error(`Fléchette inconnue : ${String(input)}`);
     const throws = [...(this.state.throws ?? []), simThrow(dart, options)];
@@ -186,7 +191,14 @@ export class BoardManagerSimulator {
       numThrows: throws.length,
       throws,
     };
-    this.broadcast();
+    this.broadcast(
+      options.lateDetail
+        ? (s) => {
+            s.throws = s.throws?.slice(0, -1);
+            if (!s.throws?.length) delete s.throws;
+          }
+        : undefined,
+    );
   }
 
   /** La cible corrige elle-même la fléchette n° `slot` (0 = première). */

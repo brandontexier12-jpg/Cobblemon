@@ -6,9 +6,9 @@ import { AutodartsPill } from "../components/AutodartsStatus";
 import { Dartboard, type KillerSegment } from "../components/Dartboard";
 import { KillerDraw } from "../components/KillerDraw";
 import { CalibrateButton } from "../components/CalibrateButton";
-import { CricketTable, DartPad, DartPickerModal, VisitHistory } from "../components/game";
+import { CricketTable, DartChip, DartPad, DartPickerModal, VisitHistory } from "../components/game";
 import { Icon } from "../components/Icon";
-import { Badge, Button, Card, ErrorBox, Segmented, Spinner, useUi } from "../components/ui";
+import { Badge, Button, Card, ErrorBox, Modal, Segmented, Spinner, useUi } from "../components/ui";
 import { ApiError, api, newId } from "../lib/api";
 import { useAppState } from "../lib/app-state";
 import { useAsync, useLocalPreference, useSocketEvent } from "../lib/hooks";
@@ -17,6 +17,7 @@ import { unlockAudio } from "../lib/sounds";
 import type { GameCue } from "../lib/game-cues";
 import type { CommandResult, MatchSnapshot, ThrownDart } from "../lib/types";
 import { DEFAULT_SOUND_SETTINGS, useAudioUnlocked, useGameSounds, type SoundSettings, type VoicePackInfo } from "../lib/use-game-sounds";
+import { ABANDON_MESSAGE } from "./Home";
 
 interface Device {
   socketId: string;
@@ -26,7 +27,7 @@ interface Device {
 
 export function GamePage() {
   const { id = "" } = useParams();
-  const [search] = useSearchParams();
+  const [search, setSearch] = useSearchParams();
   const role = search.get("role") === "spectator" ? "spectator" : "player";
   const navigate = useNavigate();
   const { autodarts } = useAppState();
@@ -44,6 +45,7 @@ export function GamePage() {
   // Saisie manuelle : en touchant la cible (grands écrans) ou avec le pavé (téléphones).
   const [manualInput, setManualInput] = useLocalPreference<"board" | "pad">("manualInput", window.innerWidth >= 1024 ? "board" : "pad");
   const [missedPad, setMissedPad] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const audioUnlocked = useAudioUnlocked();
   const versionRef = useRef(-1);
 
@@ -82,6 +84,19 @@ export function GamePage() {
       socket.emit("room:leave", { matchId: id });
     };
   }, [id, role, deviceName, load, accept]);
+
+  // « Reprendre » (accueil, historique) : la partie est reliée à nouveau à Autodarts si elle l'utilisait.
+  useEffect(() => {
+    if (search.get("reprendre") !== "1" || role === "spectator") return;
+    api
+      .post<MatchSnapshot>(`/api/matches/${id}/resume`)
+      .then(accept)
+      .catch(() => {});
+    setSearch((s) => {
+      s.delete("reprendre");
+      return s;
+    }, { replace: true });
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useSocketEvent<MatchSnapshot>("match:state", (s) => s.match.id === id && accept(s));
   useSocketEvent<{ matchId: string; devices: Device[] }>("room:presence", (p) => p.matchId === id && setDevices(p.devices));
@@ -189,6 +204,9 @@ export function GamePage() {
     eliminated: k.eliminated,
   }));
   const showDraw = !!view.killer && match.version === 0 && match.status === "active" && !drawSeen;
+  // Dernière visite close avant 3 fléchettes détectées : ses fléchettes comptées ratées restent saisissables.
+  const lastVisit = view.recentVisits[view.recentVisits.length - 1];
+  const missedVisit = canCorrect && lastVisit?.darts.some((d) => d.padded && d.paddedBy) && match.players[lastVisit.playerIndex]?.botAverage == null ? lastVisit : null;
 
   const onDart = (dart: Dart) => command({ kind: "dart", dart });
   const onBoardPick = (dart: Dart, coords: BoardPoint) => command({ kind: "dart", dart, coords });
@@ -210,8 +228,19 @@ export function GamePage() {
     }
   };
   const abandon = async () => {
-    if (!(await confirm({ title: "Abandonner la partie ?", message: "La partie sera marquée « abandonnée ». Les fléchettes déjà lancées restent dans les statistiques.", confirmLabel: "Abandonner", danger: true }))) return;
+    if (!(await confirm({ title: "Abandonner la partie ?", message: ABANDON_MESSAGE, confirmLabel: "Abandonner", danger: true }))) return;
     await command({ kind: "abandon" });
+  };
+  // Quitter une partie en cours : l'abandonner, ou la garder pour plus tard (détachée d'Autodarts).
+  const leave = async (how: "abandon" | "later") => {
+    setLeaving(false);
+    try {
+      if (how === "abandon") await api.post(`/api/matches/${id}/commands`, { kind: "abandon", commandId: newId() });
+      else await api.post(`/api/matches/${id}/leave`);
+      navigate("/");
+    } catch (e) {
+      toast((e as Error).message, "critical");
+    }
   };
   const fullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen();
@@ -228,11 +257,17 @@ export function GamePage() {
     <div className="space-y-3">
       {/* En-tête de partie */}
       <div className="flex flex-wrap items-center gap-2">
-        <Link to="/" title="Retour au menu (la partie reste en cours)">
-          <Button size="sm" variant="ghost" icon="back">
+        {canInput ? (
+          <Button size="sm" variant="ghost" icon="back" onClick={() => setLeaving(true)}>
             Menu
           </Button>
-        </Link>
+        ) : (
+          <Link to="/">
+            <Button size="sm" variant="ghost" icon="back">
+              Menu
+            </Button>
+          </Link>
+        )}
         <div className="min-w-0 flex-1 basis-48">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-display text-2xl font-bold uppercase sm:text-3xl">{view.modeName}</h1>
@@ -313,7 +348,22 @@ export function GamePage() {
         </div>
       )}
 
-      <VisitBar view={view} players={match.players} finished={finished} isAutodarts={isAutodarts} onDartClick={canInput ? setCorrecting : undefined} />
+      <VisitBar view={view} players={match.players} finished={finished} isAutodarts={isAutodarts} onDartClick={canCorrect ? setCorrecting : undefined} />
+
+      {missedVisit && (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-2 text-sm" role="status">
+          <Icon name="warning" className="text-warning" />
+          <span className="min-w-[12rem] flex-1">
+            Visite de <strong>{match.players[missedVisit.playerIndex]?.name}</strong> terminée avec {missedVisit.darts.filter((d) => !d.padded).length} fléchette(s)
+            {isAutodarts ? " détectée(s)" : " saisie(s)"} : touchez « – » pour saisir la fléchette manquante.
+          </span>
+          <span className="flex gap-1">
+            {missedVisit.darts.map((d, i) => (
+              <DartChip key={i} dart={d} size="sm" onClick={d.padded ? () => setCorrecting(d) : undefined} />
+            ))}
+          </span>
+        </div>
+      )}
 
       {/* Joueurs (téléphone et tablette) */}
       <div className={`grid gap-2 lg:hidden ${panels.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
@@ -448,8 +498,29 @@ export function GamePage() {
         open={!!correcting}
         current={correcting}
         onClose={() => setCorrecting(null)}
-        onPick={(dart) => correcting?.eventId && command({ kind: "correct", eventId: correcting.eventId, dart })}
+        onPick={(dart) => {
+          if (correcting?.padded && correcting.paddedBy) void command({ kind: "insert", paddedBy: correcting.paddedBy, dart });
+          else if (correcting?.eventId) void command({ kind: "correct", eventId: correcting.eventId, dart });
+        }}
       />
+      <Modal open={leaving} onClose={() => setLeaving(false)} title="Quitter la partie ?">
+        <p className="mb-4 text-ink-300">La partie n'est pas terminée. Que voulez-vous en faire ?</p>
+        <div className="grid gap-2">
+          <Button variant="danger" icon="x" onClick={() => void leave("abandon")}>
+            Abandonner la partie
+          </Button>
+          <p className="-mt-1 mb-1 text-xs text-ink-400">{ABANDON_MESSAGE}</p>
+          <Button icon="history" onClick={() => void leave("later")}>
+            La garder pour plus tard
+          </Button>
+          <p className="-mt-1 mb-1 text-xs text-ink-400">
+            Elle reste dans « Parties en cours » sur l'accueil{isAutodarts ? " et n'est plus reliée à Autodarts jusqu'à sa reprise" : ""}.
+          </p>
+          <Button variant="primary" icon="play" onClick={() => setLeaving(false)}>
+            Continuer la partie
+          </Button>
+        </div>
+      </Modal>
       <SoundSettingsModal open={soundOpen} onClose={() => setSoundOpen(false)} settings={sound} onChange={setSound} packs={voicePacks.data ?? []} />
     </div>
   );

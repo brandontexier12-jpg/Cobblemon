@@ -35,6 +35,8 @@ export interface DetectedThrow {
   simulated: boolean;
   /** Niveau de confiance, uniquement si la source le fournit (l'API locale Autodarts ne le fournit pas). */
   confidence?: number;
+  /** Impact absent des messages en direct, récupéré en relisant l'état de la cible par HTTP. */
+  recovered?: boolean;
 }
 
 export type ProviderKind = "manual" | "autodarts" | "simulation";
@@ -98,7 +100,14 @@ export type ScoringEvent =
   /** La cible a corrigé elle-même une fléchette déjà signalée (même position). */
   | { kind: "throw-corrected"; throw: DetectedThrow; previous: Dart }
   | { kind: "takeout-started"; at: string; boardVisit: number }
-  | { kind: "takeout-finished"; at: string; boardVisit: number; dartsOnBoard: number }
+  | {
+      kind: "takeout-finished";
+      at: string;
+      boardVisit: number;
+      dartsOnBoard: number;
+      /** Plus grand nombre de fléchettes annoncé par la cible (numThrows) pendant la visite. */
+      announced?: number;
+    }
   /** Réinitialisation (« Manual reset ») ; `own` si demandée par DARTS EVOLUTION. */
   | { kind: "reset"; at: string; own: boolean; boardVisit: number }
   | { kind: "detection-started"; at: string }

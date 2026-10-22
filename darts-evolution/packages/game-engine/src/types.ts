@@ -39,6 +39,8 @@ export interface ThrownDart extends Dart {
   marks?: number;
   /** Fléchette ajoutée automatiquement (raté) quand une visite est terminée avant 3 fléchettes. */
   padded?: boolean;
+  /** Fléchette ajoutée : identifiant de l'événement « joueur suivant » qui l'a créée (saisie après coup). */
+  paddedBy?: string;
   eventId?: string;
   source?: string;
   /** Position réelle de l'impact (Autodarts), repère normalisé : centre (0,0), anneau double ≈ rayon 1, y vers le 20. */

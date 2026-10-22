@@ -112,14 +112,14 @@ export function DartChip({ dart, onClick, size = "md" }: { dart?: ThrownDart | n
   const content = (
     <>
       <span className="font-display font-bold">{dart.padded ? "–" : dartDisplay(dart)}</span>
-      {dart.source === "autodarts" && <span className="ml-1 text-[10px] font-semibold uppercase text-ink-300" title="Détecté par Autodarts">AD</span>}
+      {dart.source === "autodarts" && !dart.padded && <span className="ml-1 text-[10px] font-semibold uppercase text-ink-300" title="Détecté par Autodarts">AD</span>}
       {dart.source === "simulation" && <span className="ml-1 text-[10px] font-semibold uppercase text-warning" title="Impact simulé">SIM</span>}
       {dart.source === "bot" && <span className="ml-1 text-[10px] font-semibold uppercase text-[#9ec5f4]" title="Fléchette du bot">BOT</span>}
     </>
   );
   const cls = `inline-flex items-center justify-center rounded-xl border px-2 tabular ${sizes[size]} ${tone}`;
   return onClick ? (
-    <button type="button" onClick={onClick} className={`press ${cls} hover:ring-2 hover:ring-ink-400`} title={dart.padded ? "Fléchette manquante comptée ratée" : "Corriger cette fléchette"}>
+    <button type="button" onClick={onClick} className={`press ${cls} hover:ring-2 hover:ring-ink-400`} title={dart.padded ? "Fléchette non détectée, comptée ratée : toucher pour saisir la vraie valeur" : "Corriger cette fléchette"}>
       {content}
     </button>
   ) : (
@@ -186,18 +186,22 @@ export function VisitHistory({ visits, players, onDartClick }: { visits: VisitRe
   );
 }
 
-/** Choix d'une fléchette (correction). */
+/** Choix d'une fléchette (correction, ou saisie d'une fléchette non détectée comptée ratée). */
 export function DartPickerModal({ open, current, onClose, onPick }: { open: boolean; current?: ThrownDart | null; onClose: () => void; onPick: (dart: Dart) => void }) {
   return (
-    <Modal open={open} onClose={onClose} title={current ? `Corriger ${current.padded ? "la fléchette manquante" : dartDisplay(current)}` : "Corriger"}>
-      {current?.padded ? (
+    <Modal open={open} onClose={onClose} title={current ? (current.padded ? "Saisir la fléchette manquante" : `Corriger ${dartDisplay(current)}`) : "Corriger"}>
+      {current?.padded && !current.paddedBy ? (
         <p className="text-ink-300">
           Cette fléchette a été comptée ratée automatiquement à la fin de la visite. Pour la remplacer, utilisez « Annuler » afin de revenir avant la fin de la
           visite, puis saisissez la fléchette réelle.
         </p>
       ) : (
         <>
-          <p className="mb-3 text-sm text-ink-300">Choisissez la valeur correcte : la partie et les statistiques sont recalculées.</p>
+          <p className="mb-3 text-sm text-ink-300">
+            {current?.padded
+              ? "Cette fléchette n'a pas été détectée et a été comptée ratée à la fin de la visite. Choisissez sa vraie valeur : elle est ajoutée à la visite et la partie et les statistiques sont recalculées."
+              : "Choisissez la valeur correcte : la partie et les statistiques sont recalculées."}
+          </p>
           <DartPad
             compact
             onDart={(d) => {
