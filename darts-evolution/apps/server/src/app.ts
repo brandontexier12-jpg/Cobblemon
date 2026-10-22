@@ -30,6 +30,8 @@ import { BotService, DEFAULT_BOT_TIMING, type BotTiming } from "./services/bots.
 import { VoiceService } from "./services/voices.js";
 import { registerVoiceRoutes } from "./http/routes-voices.js";
 import { registerUpdateRoutes } from "./http/routes-update.js";
+import { registerCareerRoutes } from "./http/routes-career.js";
+import { CareerService } from "./services/careers.js";
 
 export interface BuiltApp {
   app: FastifyInstance;
@@ -103,6 +105,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
   const autodarts = new AutodartsService(db, settings, matches, log);
   const training = new TrainingService(db, players, stats);
   const bots = new BotService(matches, log, options.botTiming ?? DEFAULT_BOT_TIMING);
+  const careers = new CareerService(db, players, matches, (playerId) => stats.summary({ playerId }).summary.x01.average3);
   const exportsService = new ExportService(db, config.version);
   const auth = new AuthService(config.adminPassword, config.sessionHours);
   const updates = new UpdateService(config, backups, () => auth.enabled, () => {
@@ -111,8 +114,14 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
   });
 
   matches.hooks = {
-    onFinished: (snapshot, state) => competitions.onMatchFinished(snapshot, (state.m as { totalLegsWon?: number[] }).totalLegsWon),
-    onReopened: (matchId) => competitions.onMatchReopened(matchId),
+    onFinished: (snapshot, state) => {
+      competitions.onMatchFinished(snapshot, (state.m as { totalLegsWon?: number[] }).totalLegsWon);
+      careers.onMatchFinished(snapshot, state);
+    },
+    onReopened: (matchId) => {
+      careers.onMatchReopened(matchId);
+      competitions.onMatchReopened(matchId);
+    },
   };
 
   const ctx: AppContext = {
@@ -130,6 +139,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     exports: exportsService,
     updates,
     bots,
+    careers,
     voices: new VoiceService(config.voicesPath),
     startedAt: Date.now(),
     runScheduledBackup() {
@@ -188,6 +198,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
   registerDataRoutes(app, ctx);
   registerUpdateRoutes(app, ctx);
   registerVoiceRoutes(app, ctx);
+  registerCareerRoutes(app, ctx);
 
   // ---------- Interface web (fichiers construits par Vite) ----------
   const webDist = config.webDistPath ?? path.resolve(process.cwd(), "apps/web/dist");

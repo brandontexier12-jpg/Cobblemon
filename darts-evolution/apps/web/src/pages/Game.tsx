@@ -237,7 +237,7 @@ export function GamePage() {
     try {
       if (how === "abandon") await api.post(`/api/matches/${id}/commands`, { kind: "abandon", commandId: newId() });
       else await api.post(`/api/matches/${id}/leave`);
-      navigate("/");
+      navigate(snapshot?.match.careerId ? `/carriere/${snapshot.match.careerId}` : "/");
     } catch (e) {
       toast((e as Error).message, "critical");
     }
@@ -280,6 +280,7 @@ export function GamePage() {
             {match.status === "abandoned" && <Badge>Abandonnée</Badge>}
             {spectator && <Badge tone="info">Mode spectateur</Badge>}
           </div>
+          {match.label && <p className="truncate text-sm font-semibold text-brand-300">{match.label}</p>}
           <p className="truncate text-sm text-ink-300">{view.headline}</p>
         </div>
         <span className="mr-auto rounded-xl border border-ink-600 bg-ink-900 px-3 py-1.5 text-sm sm:mr-0" title="Code de salle : à saisir sur un autre appareil (menu « Rejoindre une salle »)">
@@ -314,9 +315,17 @@ export function GamePage() {
           </p>
           <p className="mt-1 text-ink-300">Résultats enregistrés — statistiques mises à jour. Une correction reste possible en touchant une fléchette.</p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="primary" icon="refresh" onClick={rematch}>
-              Rejouer
-            </Button>
+            {match.careerId ? (
+              <Link to={`/carriere/${match.careerId}`}>
+                <Button variant="primary" icon="star">
+                  Retour à la carrière
+                </Button>
+              </Link>
+            ) : (
+              <Button variant="primary" icon="refresh" onClick={rematch}>
+                Rejouer
+              </Button>
+            )}
             <Link to="/statistiques">
               <Button icon="chart">Statistiques</Button>
             </Link>
@@ -509,7 +518,7 @@ export function GamePage() {
           <Button variant="danger" icon="x" onClick={() => void leave("abandon")}>
             Abandonner la partie
           </Button>
-          <p className="-mt-1 mb-1 text-xs text-ink-400">{ABANDON_MESSAGE}</p>
+          <p className="-mt-1 mb-1 text-xs text-ink-400">{match.careerId ? "Match de carrière : il sera à rejouer depuis la carrière. " : ""}{ABANDON_MESSAGE}</p>
           <Button icon="history" onClick={() => void leave("later")}>
             La garder pour plus tard
           </Button>

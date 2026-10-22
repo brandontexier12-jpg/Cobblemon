@@ -44,7 +44,7 @@ Plus de détails dans les journaux : `LOG_LEVEL=debug` dans `.env`, puis `docker
 `GET /api/health` renvoie par exemple :
 
 ```json
-{"status":"ok","version":"1.6.0","uptimeSeconds":3600,"database":"ok","schemaVersion":3,"autodarts":"connected"}
+{"status":"ok","version":"1.7.0","uptimeSeconds":3600,"database":"ok","schemaVersion":4,"autodarts":"connected"}
 ```
 
 `status` vaut `degraded` (code HTTP 503) si la base SQLite ne répond plus.

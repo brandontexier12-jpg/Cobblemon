@@ -9,6 +9,7 @@ import { PlayerAvatar } from "./ui";
 export const NAV = [
   { to: "/", label: "Accueil", icon: "home" },
   { to: "/jouer", label: "Jouer", icon: "play" },
+  { to: "/carriere", label: "Carrière", icon: "star" },
   { to: "/entrainement", label: "Entraînement", icon: "training" },
   { to: "/statistiques", label: "Statistiques", icon: "chart" },
   { to: "/joueurs", label: "Joueurs", icon: "users" },

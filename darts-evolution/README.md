@@ -27,7 +27,7 @@ impacts via Autodarts**.
 - [Développement et tests](#développement-et-tests)
 - [Limites connues](#limites-connues)
 - Documentation détaillée : [installation TerraMaster](docs/installation-terramaster.md) ·
-  [Autodarts](docs/autodarts.md) · [modes de jeu](docs/modes-de-jeu.md) ·
+  [Autodarts](docs/autodarts.md) · [modes de jeu](docs/modes-de-jeu.md) · [mode carrière](docs/carriere.md) ·
   [statistiques](docs/statistiques.md) · [architecture et sécurité](docs/architecture.md) ·
   [dépannage](docs/depannage.md)
 
@@ -94,6 +94,12 @@ ignorés pendant la calibration ; connexion locale, impacts transmis au moteur e
 un impact), déduplication, reconnexion automatique sans double comptage, alerte en cas de coupure, bascule
 en saisie manuelle, test de connexion avec diagnostic, journal des événements, **mode test simulé** (exclu
 des statistiques), outil de capture du flux réel.
+
+**Mode carrière** : une carrière sur le calendrier réel des tournois (Q-School, Pro Tour, European Tour,
+World Series, UK Open, World Matchplay, World Grand Prix, Grand Slam, championnat du monde…) contre un
+circuit de joueurs virtuels nommés ; difficulté de Débutant à Légende, sortie simple ou double, matchs
+courts à réels, Tour Card, Order of Merit et classements, palmarès. Vos matchs se jouent pour de vrai
+(Autodarts ou manuel), les autres sont simulés. Détails : [`docs/carriere.md`](docs/carriere.md).
 
 **Statistiques** : moyenne 3 fléchettes, par fléchette, par visite, 1re visite, 9 premières, meilleure
 visite, 180 / 140+ / 100+, réussite aux doubles, au bull, taux et meilleur checkout, victoires, séries,

@@ -11,6 +11,7 @@ import { EmptyState, UiProvider } from "./components/ui";
 import { AppStateProvider } from "./lib/app-state";
 import { AutodartsPage } from "./pages/Autodarts";
 import { CompetitionDetailPage, CompetitionsPage } from "./pages/Competitions";
+import { CareerPage, CareersPage } from "./pages/Career";
 import { GamePage } from "./pages/Game";
 import { HistoryPage, MatchDetailPage } from "./pages/History";
 import { HomePage } from "./pages/Home";
@@ -37,6 +38,8 @@ createRoot(document.getElementById("root")!).render(
               <Route path="joueurs/:id" element={<PlayerDetailPage />} />
               <Route path="competitions" element={<CompetitionsPage />} />
               <Route path="competitions/:id" element={<CompetitionDetailPage />} />
+              <Route path="carriere" element={<CareersPage />} />
+              <Route path="carriere/:id" element={<CareerPage />} />
               <Route path="historique" element={<HistoryPage />} />
               <Route path="historique/:id" element={<MatchDetailPage />} />
               <Route path="autodarts" element={<AutodartsPage />} />

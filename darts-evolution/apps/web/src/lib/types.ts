@@ -37,6 +37,9 @@ export interface MatchMeta {
   isSimulation: boolean;
   roomCode: string;
   fixtureId: string | null;
+  /** Match du mode carrière, et son intitulé (tournoi · tour). */
+  careerId: string | null;
+  label: string | null;
   winnerIds: string[];
   version: number;
   createdAt: string;

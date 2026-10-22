@@ -40,6 +40,8 @@ interface MatchRow {
   is_simulation: number;
   room_code: string;
   fixture_id: string | null;
+  career_id: string | null;
+  label: string | null;
   winner_ids: string;
   version: number;
   created_at: string;
@@ -84,6 +86,9 @@ export interface MatchMeta {
   isSimulation: boolean;
   roomCode: string;
   fixtureId: string | null;
+  /** Match du mode carrière (et son intitulé : tournoi, tour). */
+  careerId: string | null;
+  label: string | null;
   winnerIds: string[];
   version: number;
   createdAt: string;
@@ -229,7 +234,7 @@ export class MatchService extends EventEmitter {
     throw new AppError(500, "room_code", "Impossible de générer un code de salle.");
   }
 
-  create(input: unknown, extra: { isSimulation?: boolean; fixtureId?: string | null } = {}): MatchSnapshot {
+  create(input: unknown, extra: { isSimulation?: boolean; fixtureId?: string | null; careerId?: string; label?: string } = {}): MatchSnapshot {
     const data = CreateMatchInput.parse(input);
     const mode = data.mode as GameModeId;
     if (new Set(data.playerIds).size !== data.playerIds.length) throw badRequest("Un joueur ne peut pas être sélectionné deux fois.");
@@ -250,8 +255,8 @@ export class MatchService extends EventEmitter {
     const at = nowIso();
     this.db.transaction(() => {
       this.db.run(
-        `INSERT INTO matches (id, mode, category, options, config, seed, status, input_mode, is_simulation, room_code, fixture_id, created_at, updated_at)
-         VALUES ($id, $mode, $cat, $opt, $cfg, $seed, 'active', $input, $sim, $room, $fixture, $at, $at)`,
+        `INSERT INTO matches (id, mode, category, options, config, seed, status, input_mode, is_simulation, room_code, fixture_id, career_id, label, created_at, updated_at)
+         VALUES ($id, $mode, $cat, $opt, $cfg, $seed, 'active', $input, $sim, $room, $fixture, $career, $label, $at, $at)`,
         {
           $id: id,
           $mode: mode,
@@ -263,6 +268,8 @@ export class MatchService extends EventEmitter {
           $sim: extra.isSimulation ? 1 : 0,
           $room: this.newRoomCode(),
           $fixture: extra.fixtureId ?? null,
+          $career: extra.careerId ?? null,
+          $label: extra.label ?? null,
           $at: at,
         },
       );
@@ -331,6 +338,8 @@ export class MatchService extends EventEmitter {
       isSimulation: c.row.is_simulation === 1,
       roomCode: c.row.room_code,
       fixtureId: c.row.fixture_id,
+      careerId: c.row.career_id,
+      label: c.row.label,
       winnerIds: parseJson<string[]>(c.row.winner_ids, []),
       version: c.row.version,
       createdAt: c.row.created_at,

@@ -61,6 +61,8 @@ export class PlayerService {
     const where = [
       options.includeArchived ? null : "archived_at IS NULL",
       options.includeGuests ? null : "is_guest = 0",
+      // Les bots du mode carrière n'apparaissent que dans leur carrière.
+      "career_id IS NULL",
     ].filter(Boolean);
     const sql = `SELECT * FROM players ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY is_guest, name COLLATE NOCASE`;
     return this.db.all<PlayerRow>(sql).map(toPlayer);
@@ -102,7 +104,7 @@ export class PlayerService {
   /** Bot d'un niveau donné (créé à la première utilisation, comme un invité : hors classements). */
   bot(average: number): Player {
     if (!(BOT_AVERAGES as readonly number[]).includes(average)) throw badRequest("Niveau de bot inconnu.");
-    const existing = this.db.get<{ id: string }>("SELECT id FROM players WHERE bot_average = $a AND archived_at IS NULL ORDER BY created_at LIMIT 1", { $a: average });
+    const existing = this.db.get<{ id: string }>("SELECT id FROM players WHERE bot_average = $a AND archived_at IS NULL AND career_id IS NULL ORDER BY created_at LIMIT 1", { $a: average });
     if (existing) return this.get(existing.id);
     const id = randomUUID();
     const hue = Math.round(200 - (average - 20) * (200 / 150)); // bleu (facile) → rouge (expert)
@@ -110,6 +112,27 @@ export class PlayerService {
       `INSERT INTO players (id, name, avatar, color, level, is_guest, bot_average, created_at)
        VALUES ($id, $name, '🤖', $color, 'expert', 1, $a, $at)`,
       { $id: id, $name: `Bot ${average}`, $color: hslHex(hue, 70, 55), $a: average, $at: nowIso() },
+    );
+    return this.get(id);
+  }
+
+  /**
+   * Bot d'une carrière (adversaire du circuit) : invité masqué des listes, nom et niveau tenus à
+   * jour depuis la carrière à chaque match.
+   */
+  careerBot(careerId: string, existingId: string | undefined, info: { name: string; average: number; avatar: string }): Player {
+    const average = Math.round(Math.min(170, Math.max(20, info.average)));
+    const name = info.name.slice(0, 32);
+    if (existingId && this.db.get("SELECT 1 FROM players WHERE id = $id AND career_id = $c", { $id: existingId, $c: careerId })) {
+      this.db.run("UPDATE players SET name = $name, bot_average = $a, avatar = $avatar WHERE id = $id", { $id: existingId, $name: name, $a: average, $avatar: info.avatar });
+      return this.get(existingId);
+    }
+    const id = randomUUID();
+    const hue = Math.round(200 - (Math.min(120, Math.max(20, average)) - 20) * 2);
+    this.db.run(
+      `INSERT INTO players (id, name, avatar, color, level, is_guest, bot_average, career_id, created_at)
+       VALUES ($id, $name, $avatar, $color, 'expert', 1, $a, $career, $at)`,
+      { $id: id, $name: name, $avatar: info.avatar, $color: hslHex(hue, 70, 55), $a: average, $career: careerId, $at: nowIso() },
     );
     return this.get(id);
   }

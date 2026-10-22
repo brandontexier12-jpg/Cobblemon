@@ -216,4 +216,25 @@ export const MIGRATIONS: Migration[] = [
       ALTER TABLE players ADD COLUMN bot_average INTEGER;
     `,
   },
+  {
+    version: 4,
+    name: "mode carrière",
+    sql: `
+      -- Carrière : état complet (circuit, calendrier, tableaux, gains) en JSON.
+      CREATE TABLE careers (
+        id TEXT PRIMARY KEY,
+        player_id TEXT NOT NULL REFERENCES players(id),
+        name TEXT NOT NULL,
+        state TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX careers_player ON careers(player_id);
+      -- Bots du circuit d'une carrière : masqués des listes de joueurs.
+      ALTER TABLE players ADD COLUMN career_id TEXT;
+      -- Match de carrière : carrière d'origine et intitulé (tournoi, tour).
+      ALTER TABLE matches ADD COLUMN career_id TEXT;
+      ALTER TABLE matches ADD COLUMN label TEXT;
+    `,
+  },
 ];
