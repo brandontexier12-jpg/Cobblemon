@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ActivityCalendar, ColumnChart, TrendChart } from "../components/charts";
+import { PrecisionPanel } from "../components/Precision";
 import { Card, EmptyState, ErrorBox, Field, inputClass, PageHeader, Segmented, Spinner, StatTile } from "../components/ui";
 import { api, qs } from "../lib/api";
 import { useAppState } from "../lib/app-state";
@@ -37,6 +38,7 @@ export function StatsPage() {
   const [mode, setMode] = useState("");
   const [opponentId, setOpponentId] = useState("");
   const [granularity, setGranularity] = useState<Granularity>("week");
+  const [view, setView] = useState<"general" | "precision">("general");
   const effectivePlayer = playerId || activePlayerId || players[0]?.id || "";
   const range = preset === "perso" ? { from: custom.from ? new Date(`${custom.from}T00:00:00`).toISOString() : undefined, to: custom.to ? new Date(`${custom.to}T23:59:59`).toISOString() : undefined } : periodRange(preset);
   const filter = { playerId: effectivePlayer, ...range, mode: mode || undefined, opponentId: opponentId || undefined };
@@ -121,9 +123,19 @@ export function StatsPage() {
         )}
       </Card>
 
-      {summary.error && <ErrorBox message={summary.error} onRetry={summary.reload} />}
-      {!s && !summary.error && <Spinner />}
-      {s && x && (
+      <Segmented
+        value={view}
+        onChange={setView}
+        options={[
+          { value: "general", label: "Vue d'ensemble" },
+          { value: "precision", label: "Carte de précision" },
+        ]}
+      />
+      {view === "precision" && <PrecisionPanel filter={filter} />}
+
+      {view === "general" && summary.error && <ErrorBox message={summary.error} onRetry={summary.reload} />}
+      {view === "general" && !s && !summary.error && <Spinner />}
+      {view === "general" && s && x && (
         <>
           <section>
             <h2 className="font-display mb-2 text-xl font-semibold uppercase tracking-wide text-ink-300">X01 — scoring</h2>

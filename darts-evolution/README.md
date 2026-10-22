@@ -104,7 +104,9 @@ courts à réels, Tour Card, Order of Merit et classements, palmarès. Vos match
 **Statistiques** : moyenne 3 fléchettes, par fléchette, par visite, 1re visite, 9 premières, meilleure
 visite, 180 / 140+ / 100+, réussite aux doubles, au bull, taux et meilleur checkout, victoires, séries,
 fléchettes par leg ; graphiques journaliers / hebdomadaires / mensuels, précision, comparaison de périodes,
-calendrier d'entraînement ; filtres joueur, période, mode, adversaire. Formules : [`docs/statistiques.md`](docs/statistiques.md).
+calendrier d'entraînement ; filtres joueur, période, mode, adversaire. **Carte de précision** (Autodarts) :
+carte de chaleur des impacts, groupement autour de la case visée en millimètres, décalage moyen, doubles
+ratés dehors / dedans / à côté, évolution par semaine et constats. Formules : [`docs/statistiques.md`](docs/statistiques.md).
 
 **Progression** : records personnels, niveaux (XP), badges, objectifs hebdomadaires — calculés uniquement
 à partir des données réelles.

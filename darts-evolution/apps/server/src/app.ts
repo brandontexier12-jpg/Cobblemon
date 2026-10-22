@@ -32,6 +32,7 @@ import { registerVoiceRoutes } from "./http/routes-voices.js";
 import { registerUpdateRoutes } from "./http/routes-update.js";
 import { registerCareerRoutes } from "./http/routes-career.js";
 import { CareerService } from "./services/careers.js";
+import { PrecisionService } from "./services/precision.js";
 
 export interface BuiltApp {
   app: FastifyInstance;
@@ -105,6 +106,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
   const autodarts = new AutodartsService(db, settings, matches, log);
   const training = new TrainingService(db, players, stats);
   const bots = new BotService(matches, log, options.botTiming ?? DEFAULT_BOT_TIMING);
+  const precision = new PrecisionService(db);
   const careers = new CareerService(db, players, matches, (playerId) => stats.summary({ playerId }).summary.x01.average3);
   const exportsService = new ExportService(db, config.version);
   const auth = new AuthService(config.adminPassword, config.sessionHours);
@@ -140,6 +142,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     updates,
     bots,
     careers,
+    precision,
     voices: new VoiceService(config.voicesPath),
     startedAt: Date.now(),
     runScheduledBackup() {
@@ -157,6 +160,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     async reloadAfterRestore() {
       db.migrate();
       matches.clearCache();
+      precision.clearCache();
       await autodarts.stop();
       await autodarts.start();
       app.log.warn("Base restaurée depuis une sauvegarde.");

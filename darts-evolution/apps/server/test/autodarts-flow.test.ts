@@ -162,6 +162,33 @@ describe("intégration Autodarts de bout en bout (simulateur de Board Manager)",
     expect(journal.filter((j: any) => j.kind === "liaison").map((j: any) => j.outcome)).toEqual(["partie liée à Autodarts", "aucune partie liée", "partie liée à Autodarts"]);
   });
 
+  it("carte de précision : décalage mesuré sur les positions Autodarts, positions incohérentes écartées", async () => {
+    const { sim, app } = await setup();
+    const [a] = await createPlayers(app, "Alice");
+    const { match } = await app.json("POST", "/api/matches", { mode: "x01", options: { startScore: 501 }, playerIds: [a], inputMode: "autodarts" });
+    // Centre du T20 : (0 ; 0,606). Chaque fléchette tombe 6 mm à gauche, toujours dans le T20.
+    const t20 = { x: -6 / 170, y: 0.606 };
+    for (let visit = 0; visit < 2; visit++) {
+      for (let d = 0; d < 3; d++) sim.throwDart("T20", { coords: t20 });
+      await vi.waitFor(async () => expect((await view(app, match.id)).current.darts).toHaveLength(3));
+      sim.takeout();
+      await vi.waitFor(async () => expect((await view(app, match.id)).current.darts).toHaveLength(0));
+    }
+    // Position incohérente : annoncée en S5, mais placée dans le T20.
+    sim.throwDart("S5", { coords: t20 });
+    await vi.waitFor(async () => expect((await view(app, match.id)).current.darts).toHaveLength(1));
+
+    const p = await app.json("GET", `/api/stats/precision?playerId=${a}`);
+    expect(p).toMatchObject({ impacts: 6, ignored: 1, matches: 1 });
+    expect(p.targets[0]).toMatchObject({ target: "T20", count: 6, hits: 6, hitRate: 1 });
+    expect(p.targets[0].biasX).toBeCloseTo(-6, 0);
+    expect(p.targets[0].meanError).toBeLessThan(7);
+    expect(p.heat).toHaveLength(6);
+    // Un autre joueur, ou une période antérieure : rien.
+    expect((await app.json("GET", `/api/stats/precision?playerId=${a}&to=2020-01-01T00:00:00.000Z`)).impacts).toBe(0);
+    expect((await app.request("GET", "/api/stats/precision")).statusCode).toBe(400);
+  });
+
   it("ignore la cible réelle pendant le tour d'un bot, qui passe la main seul", async () => {
     const { sim, app } = await setup({ botTiming: { firstDartMs: 400, dartMs: 40, nextMs: 40, handOverMs: 40, undoPauseMs: 100, killerDrawMs: 0 } });
     const [a] = await createPlayers(app, "Alice");

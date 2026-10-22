@@ -14,6 +14,7 @@ import type { ThrownDart } from "../lib/types";
 
 /** Bord du dessin : la zone des numéros entoure l'anneau double (rayon 1). */
 const EDGE = 1.32;
+export const BOARD_EDGE = EDGE;
 const R = BOARD_RADII;
 
 const COLORS = {
@@ -146,6 +147,11 @@ const STATIC_BOARD = (
     })}
   </g>
 );
+
+/** Dessin de la cible seule (sans impacts), en coordonnées normalisées y vers le bas. */
+export function BoardBackdrop() {
+  return STATIC_BOARD;
+}
 
 /** Killer : numéro d'un joueur, coloré à sa couleur et rempli selon ses vies. */
 export interface KillerSegment {

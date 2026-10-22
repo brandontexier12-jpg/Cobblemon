@@ -115,8 +115,8 @@ Règles appliquées (et testées) :
     acceptés que par une partie marquée « simulation », elle-même exclue de toutes les statistiques.
     Un impact réel est refusé par une partie de test et inversement.
 13. **Position de l'impact** : les coordonnées `coords` de chaque lancer sont enregistrées avec la fléchette
-    (colonnes `x`, `y`) et affichées sur la cible de l'écran de jeu. Elles ne servent jamais au calcul du
-    score. Repère supposé : centre (0, 0), bord extérieur du double = 1, y vers le 20 (valeurs des jeux
+    (colonnes `x`, `y`), affichées sur la cible de l'écran de jeu et analysées par la **carte de précision**
+    (voir `docs/statistiques.md`). Elles ne servent jamais au calcul du score. Repère supposé : centre (0, 0), bord extérieur du double = 1, y vers le 20 (valeurs des jeux
     d'essai : T20 ≈ (0, 0,60), D20 ≈ (0, 0,97)). Si une position ne tombe pas dans la case comptée (repère
     différent, fléchette corrigée), la fléchette est dessinée au centre de sa case ; un repère à axe
     vertical inversé est reconnu automatiquement.

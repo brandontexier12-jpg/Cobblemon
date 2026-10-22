@@ -16,6 +16,7 @@ import type { UpdateService } from "./services/updates.js";
 import type { BotService } from "./services/bots.js";
 import type { VoiceService } from "./services/voices.js";
 import type { CareerService } from "./services/careers.js";
+import type { PrecisionService } from "./services/precision.js";
 
 export interface AppContext {
   config: AppConfig;
@@ -33,6 +34,7 @@ export interface AppContext {
   updates: UpdateService;
   bots: BotService;
   careers: CareerService;
+  precision: PrecisionService;
   voices: VoiceService;
   startedAt: number;
   /** Prochaine sauvegarde automatique (vérification périodique). */

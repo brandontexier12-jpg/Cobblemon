@@ -79,3 +79,48 @@ séparation pour les daltonismes, bande de luminosité) :
 - calendrier (intensité) : rampe orange `#7d3a14` → `#ffb37a`, jours vides en gris.
 
 Chaque graphique propose une vue tableau (« Voir le tableau ») et une info-bulle au survol.
+
+## Carte de précision (Autodarts)
+
+Statistiques → « Carte de précision ». Mêmes filtres que les autres statistiques (joueur, mode,
+adversaire, période) ; simulations et parties abandonnées exclues.
+
+**Données utilisées** : uniquement les fléchettes détectées par Autodarts, qui portent la position
+mesurée de l'impact (les saisies manuelles n'en ont pas). Une position qui ne tombe pas dans la case
+comptée (fléchette corrigée à la main, repère des coordonnées différent) est écartée et comptée à part ;
+au-delà de 20 % de positions écartées, un avertissement l'indique.
+
+**Cible visée** : la partie est rejouée pour connaître l'état du jeu avant chaque fléchette, et la cible
+est déduite comme le ferait un joueur (même logique que les bots) :
+
+| Situation | Cible retenue |
+|---|---|
+| X01 au scoring, Count-Up, High Score | T20, ou T19 si la fléchette est tombée plus près du 19 que du 20 |
+| X01 en zone de sortie, entraînement aux sorties | le double de la sortie (ou le bull à 50) ; les fléchettes de préparation (ex. S19 pour laisser 32) sont ignorées |
+| Entraînements doubles, triples, bull, Bob's 27, tour de l'horloge (case imposée) | la cible affichée |
+| Cricket, Killer, départ double, tour de l'horloge « toute la case » | non analysées (intention incertaine) |
+
+**Mesures** (en millimètres, cible réglementaire : bord extérieur du double à 170 mm du centre) :
+
+| Mesure | Définition |
+|---|---|
+| Dans la case | part des fléchettes tombées exactement dans la case visée |
+| Écart moyen | distance moyenne entre l'impact et le centre de la case visée |
+| Décalage | position moyenne des impacts par rapport au centre visé (gauche/droite, haut/bas) |
+| Groupement | rayon, autour du point moyen d'impact, qui contient la moitié des fléchettes (indépendant du décalage) |
+| Doubles ratés | dehors (au-delà du double : fléchette perdue), dedans (simple ou triple du même secteur), à côté (secteur voisin) |
+
+« Scoring » et « Tous les doubles » réunissent plusieurs cases : chaque écart est pivoté pour que le haut
+signifie « vers l'extérieur de la cible » et la droite « sens horaire ». Une case seule (T20, D16…) garde
+l'orientation de la cible affichée.
+
+**Constats** affichés seulement avec assez de fléchettes : décalage et groupement au T20 (30 fléchettes
+au moins), répartition des doubles ratés (20 doubles visés et 10 ratés au moins), meilleur et moins bon
+double (8 tentatives au moins chacun), évolution de l'écart au scoring sur 4 semaines (30 fléchettes au
+moins de chaque côté).
+
+Couleurs : carte de chaleur en rampe orange (une seule teinte, du transparent au clair), fléchettes dans la
+case en points pleins orange, à côté en cercles clairs (forme et couleur).
+
+Code : `apps/server/src/precision/analyze.ts` (tests : `apps/server/test/precision.test.ts`), interface
+`apps/web/src/components/Precision.tsx`.

@@ -53,7 +53,8 @@ function coordsFor(segment: number, ring: keyof typeof RING_RADIUS | "bull" | "o
 }
 
 /** Construit un lancer au format du Board Manager. */
-export function simThrow(dart: Dart, options: { bouncer?: boolean; offBoardNumber?: number } = {}): SimThrow {
+export function simThrow(dart: Dart, options: { bouncer?: boolean; offBoardNumber?: number; coords?: { x: number; y: number } } = {}): SimThrow {
+  if (options.coords) return { ...simThrow(dart, { ...options, coords: undefined }), coords: options.coords };
   if (options.bouncer) {
     return { bouncer: true, coords: { x: 0, y: 0 }, segment: { bed: "Outside", multiplier: 0, name: "Miss", number: 0 } };
   }
@@ -180,7 +181,7 @@ export class BoardManagerSimulator {
    * Une fléchette plantée (ou ratée) sur la cible. `lateDetail` : le message WebSocket annonce la
    * fléchette (numThrows) sans son détail, que seul GET /api/state contient (cas à couvrir côté client).
    */
-  throwDart(input: Dart | string, options: { bouncer?: boolean; lateDetail?: boolean } = {}): void {
+  throwDart(input: Dart | string, options: { bouncer?: boolean; lateDetail?: boolean; coords?: { x: number; y: number } } = {}): void {
     const dart = typeof input === "string" ? parseDart(input) : input;
     if (!dart) throw new Error(`Fléchette inconnue : ${String(input)}`);
     const throws = [...(this.state.throws ?? []), simThrow(dart, options)];

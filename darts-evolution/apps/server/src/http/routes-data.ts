@@ -16,6 +16,7 @@ export function registerDataRoutes(app: FastifyInstance, ctx: AppContext): void 
     return ctx.stats.series(q, q.granularity);
   });
   app.get("/api/stats/calendar", async (req) => ctx.stats.calendar(StatsFilter.parse(req.query)));
+  app.get("/api/stats/precision", async (req) => ctx.precision.analyze(StatsFilter.parse(req.query)));
   app.get("/api/stats/compare", async (req) => {
     const q = StatsFilter.extend({
       aFrom: z.string().max(40).optional(),
