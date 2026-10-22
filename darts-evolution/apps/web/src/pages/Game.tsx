@@ -1,16 +1,19 @@
-import { endReasonLabel } from "@darts-evolution/game-engine";
-import type { Dart } from "@darts-evolution/shared";
+import type { BoardPoint, Dart } from "@darts-evolution/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { PlayerPanel, SoundSettingsModal, VisitBar } from "../components/arena";
 import { AutodartsPill } from "../components/AutodartsStatus";
-import { CricketTable, DartChip, DartPad, DartPickerModal, PlayerCards, VisitHistory } from "../components/game";
+import { Dartboard } from "../components/Dartboard";
+import { CricketTable, DartPad, DartPickerModal, VisitHistory } from "../components/game";
 import { Icon } from "../components/Icon";
-import { Badge, Button, Card, ErrorBox, Spinner, useUi } from "../components/ui";
+import { Badge, Button, Card, ErrorBox, Segmented, Spinner, useUi } from "../components/ui";
 import { ApiError, api, newId } from "../lib/api";
 import { useAppState } from "../lib/app-state";
 import { useLocalPreference, useSocketEvent } from "../lib/hooks";
 import { emitAck, getSocket } from "../lib/socket";
+import { unlockAudio } from "../lib/sounds";
 import type { CommandResult, MatchSnapshot, ThrownDart } from "../lib/types";
+import { DEFAULT_SOUND_SETTINGS, useAudioUnlocked, useGameSounds, type SoundSettings } from "../lib/use-game-sounds";
 
 interface Device {
   socketId: string;
@@ -31,6 +34,12 @@ export function GamePage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [correcting, setCorrecting] = useState<ThrownDart | null>(null);
   const [deviceName] = useLocalPreference("deviceName", `Appareil ${Math.floor(Math.random() * 90 + 10)}`);
+  const [sound, setSound] = useLocalPreference<SoundSettings>("sound", DEFAULT_SOUND_SETTINGS);
+  const [soundOpen, setSoundOpen] = useState(false);
+  // Saisie manuelle : en touchant la cible (grands écrans) ou avec le pavé (téléphones).
+  const [manualInput, setManualInput] = useLocalPreference<"board" | "pad">("manualInput", window.innerWidth >= 1024 ? "board" : "pad");
+  const [missedPad, setMissedPad] = useState(false);
+  const audioUnlocked = useAudioUnlocked();
   const versionRef = useRef(-1);
 
   const accept = useCallback((next: MatchSnapshot) => {
@@ -114,6 +123,8 @@ export function GamePage() {
     [role, id, accept, load, toast],
   );
 
+  useGameSounds(snapshot, sound);
+
   if (error) return <ErrorBox message={error} onRetry={load} />;
   if (!snapshot) return <Spinner label="Chargement de la partie…" />;
 
@@ -122,14 +133,19 @@ export function GamePage() {
   const isAutodarts = match.inputMode === "autodarts";
   const bound = autodarts?.boundMatchId === match.id;
   const current = view.current;
-  const currentPlayer = match.players.find((p) => p.id === current.playerId);
-  const nextPlayer = match.players.find((p) => p.id === current.nextPlayerId);
   const spectator = role === "spectator";
   const canInput = !finished && !spectator;
   const canCorrect = canInput || (match.status === "finished" && !spectator);
-  const slots = [0, 1, 2].map((i) => current.darts[i] ?? null);
+  const soundOn = sound.effects || sound.announcer !== "off";
+  const panels = view.players.map((p) => ({ player: p, meta: match.players.find((m) => m.id === p.id) }));
+  const left = panels.filter((_, i) => i % 2 === 0);
+  const right = panels.filter((_, i) => i % 2 === 1);
+  const compact = panels.length > 2;
+  const showPad = canInput && ((!isAutodarts && manualInput === "pad") || (isAutodarts && missedPad));
+  const boardPick = canInput && !isAutodarts && manualInput === "board";
 
   const onDart = (dart: Dart) => command({ kind: "dart", dart });
+  const onBoardPick = (dart: Dart, coords: BoardPoint) => command({ kind: "dart", dart, coords });
   const switchInput = async (mode: "manual" | "autodarts") => {
     try {
       accept(await api.post<MatchSnapshot>(`/api/matches/${id}/input-mode`, { mode }));
@@ -156,11 +172,17 @@ export function GamePage() {
     else void document.documentElement.requestFullscreen?.().catch(() => toast("Plein écran non disponible sur cet appareil.", "warning"));
   };
 
+  const history = (
+    <Card title="Historique de la partie">
+      <VisitHistory visits={view.recentVisits} players={match.players} onDartClick={canCorrect ? setCorrecting : undefined} />
+    </Card>
+  );
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* En-tête de partie */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="min-w-0 flex-1">
+        <div className="w-full min-w-0 sm:w-auto sm:flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-display text-2xl font-bold uppercase sm:text-3xl">{view.modeName}</h1>
             {match.isSimulation && (
@@ -174,14 +196,21 @@ export function GamePage() {
           </div>
           <p className="truncate text-sm text-ink-300">{view.headline}</p>
         </div>
-        <span className="rounded-xl border border-ink-600 bg-ink-900 px-3 py-1.5 text-sm" title="Code de salle : à saisir sur un autre appareil (menu « Rejoindre une salle »)">
+        <span className="mr-auto rounded-xl border border-ink-600 bg-ink-900 px-3 py-1.5 text-sm sm:mr-0" title="Code de salle : à saisir sur un autre appareil (menu « Rejoindre une salle »)">
           Salle <span className="font-display tabular text-lg font-bold tracking-widest text-brand-400">{match.roomCode}</span>
-          <span className="ml-2 text-ink-400">· {devices.length || 1} appareil(s)</span>
+          <span className="ml-2 hidden text-ink-400 sm:inline">· {devices.length || 1} appareil(s)</span>
         </span>
         {isAutodarts && (
           <span className="hidden lg:inline-flex">
             <AutodartsPill overview={autodarts} compact />
           </span>
+        )}
+        {soundOn && !audioUnlocked ? (
+          <Button size="sm" variant="primary" icon="volume" onClick={unlockAudio} className="animate-pulse">
+            Activer le son
+          </Button>
+        ) : (
+          <Button size="sm" variant="ghost" icon={soundOn ? "volume" : "mute"} onClick={() => setSoundOpen(true)} aria-label="Sons et annonces" title="Sons et annonces" />
         )}
         <Button size="sm" variant="ghost" icon="fullscreen" onClick={fullscreen} aria-label="Plein écran" />
       </div>
@@ -197,7 +226,7 @@ export function GamePage() {
                   ? "Égalité !"
                   : `Victoire de ${match.players.find((p) => p.id === view.winners[0])?.name ?? "?"}`}
           </p>
-          <p className="mt-1 text-ink-300">Résultats enregistrés — statistiques mises à jour. Une correction reste possible en touchant une fléchette ci-dessous.</p>
+          <p className="mt-1 text-ink-300">Résultats enregistrés — statistiques mises à jour. Une correction reste possible en touchant une fléchette.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button variant="primary" icon="refresh" onClick={rematch}>
               Rejouer
@@ -217,143 +246,123 @@ export function GamePage() {
         </div>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <div className="space-y-4">
-          <PlayerCards view={view} players={match.players} />
-          {view.board && <CricketTable view={view} />}
-          <Card title="Historique de la partie" className="hidden xl:block">
-            <VisitHistory visits={view.recentVisits} players={match.players} onDartClick={canCorrect ? setCorrecting : undefined} />
-          </Card>
+      {canInput && isAutodarts && (!bound || autodarts?.status.state !== "connected") && (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-2.5 text-sm">
+          <Icon name="warning" className="text-warning" />
+          <span className="flex-1">
+            {!bound
+              ? "Cette partie n'est pas la partie liée à Autodarts : les impacts ne sont pas transmis."
+              : "Autodarts n'est pas connecté : la partie est conservée. Passez en saisie manuelle ou attendez la reconnexion."}
+          </span>
+          {!bound && (
+            <Button size="sm" icon="link" onClick={() => api.post("/api/autodarts/bind", { matchId: match.id }).then(() => toast("Partie liée à Autodarts.", "good"))}>
+              Lier à Autodarts
+            </Button>
+          )}
+        </div>
+      )}
+
+      <VisitBar view={view} players={match.players} finished={finished} isAutodarts={isAutodarts} onDartClick={canInput ? setCorrecting : undefined} />
+
+      {/* Joueurs (téléphone et tablette) */}
+      <div className={`grid gap-2 lg:hidden ${panels.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+        {panels.map(({ player, meta }) => (
+          <PlayerPanel key={player.id} player={player} meta={meta} variant="mini" />
+        ))}
+      </div>
+
+      <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+        <div className="hidden flex-col gap-3 lg:flex">
+          {left.map(({ player, meta }) => (
+            <PlayerPanel key={player.id} player={player} meta={meta} variant={compact ? "compact" : "full"} />
+          ))}
         </div>
 
-        <div className="space-y-4">
-          {/* Visite en cours */}
-          <Card>
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <div className="text-xs uppercase tracking-wider text-ink-400">{finished ? "Dernière visite" : current.awaitingNext ? "Visite terminée" : "Au tour de"}</div>
-                <div className="font-display text-2xl font-bold">{currentPlayer?.name}</div>
-              </div>
-              <div className="text-right">
-                <div className="text-xs uppercase tracking-wider text-ink-400">Visite</div>
-                <div className="font-display tabular text-4xl font-bold text-brand-500">{current.visitPoints}</div>
-              </div>
+        {/* Cible et commandes */}
+        <div className="mx-auto flex w-full flex-col items-center gap-3 lg:w-[min(560px,calc(100dvh-330px))] lg:min-w-[340px]">
+          {canInput && !isAutodarts && (
+            <Segmented
+              size="sm"
+              value={manualInput}
+              onChange={setManualInput}
+              options={[
+                { value: "board", label: <span className="flex items-center gap-1.5"><Icon name="play" size={16} /> Toucher la cible</span> },
+                { value: "pad", label: <span className="flex items-center gap-1.5"><Icon name="grid" size={16} /> Pavé</span> },
+              ]}
+            />
+          )}
+          {showPad && !isAutodarts ? (
+            <div className="w-full">
+              <DartPad onDart={onDart} />
             </div>
-            <div className="mt-3 flex gap-2">
-              {slots.map((d, i) => (
-                <DartChip key={i} dart={d} size="lg" onClick={d && canInput ? () => setCorrecting(d) : undefined} />
-              ))}
+          ) : (
+            <Dartboard
+              darts={current.darts}
+              target={finished || view.mode === "checkout_training" ? undefined : current.target /* entraînement checkout : la cible est un score */}
+              onPick={boardPick ? onBoardPick : undefined}
+              className="aspect-square w-full max-w-[min(100%,calc(100dvh-330px))] min-w-[260px]"
+            />
+          )}
+          {canInput && isAutodarts && missedPad && (
+            <div className="w-full rounded-2xl border border-ink-700 bg-ink-850 p-3">
+              <p className="mb-2 text-sm text-ink-300">Fléchette non détectée : saisissez-la ici.</p>
+              <DartPad compact onDart={onDart} />
             </div>
-            {current.endReason && current.complete && (
-              <p className={`mt-3 font-semibold ${current.endReason === "bust" ? "text-[#ff8f8f]" : "text-brand-300"}`}>{endReasonLabel(current.endReason)}</p>
-            )}
-            {current.awaitingNext && nextPlayer && (
-              <p className="mt-1 text-sm text-ink-300">
-                {isAutodarts ? "Retirez les fléchettes pour passer à " : "Prochain joueur : "}
-                <strong className="text-ink-100">{nextPlayer.name}</strong>
-                {!isAutodarts && " (saisir une fléchette passe automatiquement au joueur suivant)"}
-              </p>
-            )}
-            {current.instruction && !current.awaitingNext && !finished && <p className="mt-3 text-ink-200">{current.instruction}</p>}
-            {view.checkout && !finished && (
-              <div className="mt-3 rounded-xl border border-ink-700 bg-ink-900 p-3">
-                <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-wider text-ink-400">
-                  <span>Checkout {view.checkout.remaining}</span>
-                  <span>{view.checkout.dartsLeft} fléchette(s)</span>
-                </div>
-                {view.checkout.routes.length === 0 ? (
-                  <p className="text-sm text-ink-300">Pas de sortie possible avec les fléchettes restantes.</p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {view.checkout.routes.map((r, i) => (
-                      <li key={i} className={`flex items-center gap-2 ${i === 0 ? "" : "opacity-70"}`}>
-                        {r.map((label, j) => (
-                          <span key={j} className={`font-display rounded-lg px-2.5 py-1 text-lg font-bold ${i === 0 ? "bg-brand-500 text-ink-950" : "bg-ink-700 text-ink-100"}`}>
-                            {label}
-                          </span>
-                        ))}
-                        {i === 0 && <span className="text-xs text-ink-400">recommandé</span>}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </Card>
-
-          {/* Saisie */}
+          )}
           {canInput && (
-            <Card>
-              {isAutodarts ? (
-                <div className="mb-3 space-y-2 rounded-xl border border-ink-700 bg-ink-900 p-3">
-                  <div className="flex items-center gap-2">
-                    <Icon name="plug" className="text-brand-500" />
-                    <span className="font-semibold">Détection automatique Autodarts</span>
-                  </div>
-                  {!bound && <p className="text-sm text-warning">Cette partie n'est pas la partie liée à Autodarts : les impacts ne sont pas transmis.</p>}
-                  {autodarts?.status.state !== "connected" && (
-                    <p className="text-sm text-warning">
-                      Autodarts n'est pas connecté : la partie est conservée. Passez en saisie manuelle ou attendez la reconnexion.
-                    </p>
-                  )}
-                  {autodarts?.status.lastThrow && <p className="text-sm text-ink-300">Dernier impact détecté : {autodarts.status.lastThrow}</p>}
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm" icon="edit" onClick={() => switchInput("manual")}>
-                      Passer en saisie manuelle
-                    </Button>
-                    {!bound && (
-                      <Button size="sm" icon="link" onClick={() => api.post("/api/autodarts/bind", { matchId: match.id }).then(() => toast("Partie liée à Autodarts.", "good"))}>
-                        Lier à Autodarts
-                      </Button>
-                    )}
-                    <Button size="sm" variant="ghost" icon="refresh" onClick={() => api.post("/api/autodarts/reset-board").catch((e: Error) => toast(e.message, "critical"))}>
-                      Réinitialiser la cible
-                    </Button>
-                  </div>
-                  <details className="text-sm text-ink-300">
-                    <summary className="cursor-pointer">Saisir une fléchette manquée par la détection</summary>
-                    <div className="mt-2">
-                      <DartPad compact onDart={onDart} />
-                    </div>
-                  </details>
-                </div>
-              ) : (
-                <DartPad onDart={onDart} />
-              )}
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Button icon="undo" onClick={() => command({ kind: "undo" })} disabled={busy}>
-                  Annuler
-                </Button>
-                <Button variant="primary" icon="next" onClick={() => command({ kind: "next" })} disabled={busy}>
-                  Joueur suivant
-                </Button>
-              </div>
-              <div className="mt-3 flex flex-wrap justify-between gap-2 text-sm">
-                {!isAutodarts && autodarts?.status.state === "connected" && (
-                  <button className="text-ink-300 underline-offset-2 hover:underline" onClick={() => switchInput("autodarts")}>
-                    Utiliser la détection Autodarts
-                  </button>
-                )}
-                <button className="ml-auto text-ink-400 underline-offset-2 hover:text-[#ff8f8f] hover:underline" onClick={abandon}>
-                  Abandonner la partie
-                </button>
-              </div>
-            </Card>
-          )}
-
-          {finished && !spectator && match.status === "finished" && (
-            <Card>
-              <Button icon="undo" onClick={() => command({ kind: "undo" })} disabled={busy}>
-                Annuler la dernière fléchette (rouvre la partie)
+            <div className="grid w-full grid-cols-2 gap-2">
+              <Button size="lg" icon="undo" onClick={() => command({ kind: "undo" })} disabled={busy}>
+                Annuler
               </Button>
-            </Card>
+              <Button size="lg" variant="primary" icon="next" onClick={() => command({ kind: "next" })} disabled={busy}>
+                Joueur suivant
+              </Button>
+            </div>
           )}
+          {canInput && isAutodarts && (
+            <div className="flex w-full flex-wrap justify-center gap-2">
+              <Button size="sm" variant={missedPad ? "primary" : "secondary"} icon="plus" onClick={() => setMissedPad(!missedPad)}>
+                Fléchette manquée
+              </Button>
+              <Button size="sm" icon="edit" onClick={() => switchInput("manual")}>
+                Saisie manuelle
+              </Button>
+              <Button size="sm" variant="ghost" icon="refresh" onClick={() => api.post("/api/autodarts/reset-board").catch((e: Error) => toast(e.message, "critical"))}>
+                Réinitialiser la cible
+              </Button>
+            </div>
+          )}
+          {finished && !spectator && match.status === "finished" && (
+            <Button icon="undo" onClick={() => command({ kind: "undo" })} disabled={busy}>
+              Annuler la dernière fléchette (rouvre la partie)
+            </Button>
+          )}
+          {canInput && (
+            <div className="flex w-full flex-wrap justify-between gap-2 text-sm">
+              {!isAutodarts && autodarts?.status.state === "connected" ? (
+                <button className="text-ink-300 underline-offset-2 hover:underline" onClick={() => switchInput("autodarts")}>
+                  Utiliser la détection Autodarts
+                </button>
+              ) : (
+                <span />
+              )}
+              <button className="text-ink-400 underline-offset-2 hover:text-[#ff8f8f] hover:underline" onClick={abandon}>
+                Abandonner la partie
+              </button>
+            </div>
+          )}
+        </div>
 
-          <Card title="Historique de la partie" className="xl:hidden">
-            <VisitHistory visits={view.recentVisits} players={match.players} onDartClick={canCorrect ? setCorrecting : undefined} />
-          </Card>
+        <div className="hidden flex-col gap-3 lg:flex">
+          {right.map(({ player, meta }) => (
+            <PlayerPanel key={player.id} player={player} meta={meta} variant={compact ? "compact" : "full"} />
+          ))}
+          {right.length === 0 && history}
         </div>
       </div>
+
+      {view.board && <CricketTable view={view} />}
+      <div className={right.length === 0 ? "lg:hidden" : ""}>{history}</div>
 
       <DartPickerModal
         open={!!correcting}
@@ -361,6 +370,7 @@ export function GamePage() {
         onClose={() => setCorrecting(null)}
         onPick={(dart) => correcting?.eventId && command({ kind: "correct", eventId: correcting.eventId, dart })}
       />
+      <SoundSettingsModal open={soundOpen} onClose={() => setSoundOpen(false)} settings={sound} onChange={setSound} />
     </div>
   );
 }

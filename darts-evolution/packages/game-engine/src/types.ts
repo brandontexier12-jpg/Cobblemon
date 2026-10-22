@@ -41,6 +41,13 @@ export interface ThrownDart extends Dart {
   padded?: boolean;
   eventId?: string;
   source?: string;
+  /** Position réelle de l'impact (Autodarts), repère normalisé : centre (0,0), anneau double ≈ rayon 1, y vers le 20. */
+  coords?: DartCoords;
+}
+
+export interface DartCoords {
+  x: number;
+  y: number;
 }
 
 export type VisitEndReason =
@@ -101,7 +108,7 @@ export interface GameState<C = unknown, M = unknown> {
 }
 
 export type GameEvent =
-  | { type: "dart"; dart: Dart; id?: string; source?: string }
+  | { type: "dart"; dart: Dart; id?: string; source?: string; coords?: DartCoords }
   | { type: "next"; id?: string; source?: string };
 
 export interface Finish {

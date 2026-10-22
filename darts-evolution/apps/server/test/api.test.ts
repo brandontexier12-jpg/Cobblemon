@@ -102,6 +102,24 @@ describe("partie X01 complète", () => {
     expect(stale.json().error).toBe("version_conflict");
   });
 
+  it("conserve la position touchée sur la cible et ignore une position aberrante", async () => {
+    const first = await open();
+    const [a] = await createPlayers(first, "Alice");
+    const { match } = await first.json("POST", "/api/matches", { mode: "x01", options: {}, playerIds: [a] });
+    const url = `/api/matches/${match.id}/commands`;
+    await first.json("POST", url, { kind: "dart", dart: { segment: 20, multiplier: 3 }, coords: { x: 0.01, y: 0.6 } });
+    const r = await first.json("POST", url, { kind: "dart", dart: { segment: 5, multiplier: 1 }, coords: { x: 50, y: 0 } });
+    expect(r.snapshot.view.current.darts.map((d: any) => d.coords ?? null)).toEqual([{ x: 0.01, y: 0.6 }, null]);
+    const bad = await first.request("POST", url, { kind: "dart", dart: { segment: 1, multiplier: 1 }, coords: { x: "a", y: 0 } });
+    expect(bad.statusCode).toBe(400);
+    // La position est enregistrée en base : elle survit au redémarrage.
+    await first.close();
+    apps.pop();
+    const second = await open({}, first.dir);
+    const reloaded = await second.json("GET", `/api/matches/${match.id}`);
+    expect(reloaded.view.current.darts[0].coords).toEqual({ x: 0.01, y: 0.6 });
+  });
+
   it("refuse une configuration de mode invalide", async () => {
     const app = await open();
     const [a] = await createPlayers(app, "Alice");
@@ -224,7 +242,7 @@ describe("administration et sécurité", () => {
   it("renvoie des en-têtes de sécurité et une santé exploitable", async () => {
     const app = await open();
     const res = await app.request("GET", "/api/health");
-    expect(res.json()).toMatchObject({ status: "ok", database: "ok", schemaVersion: 1 });
+    expect(res.json()).toMatchObject({ status: "ok", database: "ok", schemaVersion: 2 });
     expect(res.headers["x-content-type-options"]).toBe("nosniff");
     expect((await app.request("GET", "/api/inexistant")).statusCode).toBe(404);
   });

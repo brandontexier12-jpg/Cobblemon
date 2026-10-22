@@ -327,6 +327,7 @@ export class AutodartsService extends EventEmitter {
         source: t.simulated ? "simulation" : "autodarts",
         externalId: t.eventId,
         commandId: `ad:${t.eventId}`,
+        ...(t.coords ? { coords: t.coords } : {}),
       });
       this.journal("impact", this.summary(t), result.duplicate ? "doublon ignoré" : "appliqué", target.matchId);
     } catch (error) {
@@ -354,6 +355,7 @@ export class AutodartsService extends EventEmitter {
         source: t.simulated ? "simulation" : "autodarts",
         externalId: t.eventId,
         commandId: `ad:${t.eventId}`,
+        ...(t.coords ? { coords: t.coords } : {}),
       });
       this.journal("correction", { ...this.summary(t), previous: dartDisplay(previous) }, result.applied ? "appliquée" : "doublon ignoré", target.matchId);
     } catch (error) {

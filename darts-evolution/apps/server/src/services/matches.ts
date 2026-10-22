@@ -9,6 +9,7 @@ import {
   isGameModeId,
   ModeConfigError,
   prepareConfig,
+  type DartCoords,
   type GameEvent,
   type GameModeId,
   type GameState,
@@ -54,6 +55,8 @@ interface EventRow {
   multiplier: number | null;
   source: EventSource;
   external_id: string | null;
+  x: number | null;
+  y: number | null;
   status: "active" | "undone" | "replaced";
   replaces: string | null;
   created_at: string;
@@ -110,7 +113,14 @@ export const CreateMatchInput = z.object({
 const DartSchema = z.object({ segment: z.number().int(), multiplier: z.number().int() }).refine(isValidDart, "Fléchette invalide.");
 
 export const CommandInput = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("dart"), dart: DartSchema, commandId: z.string().max(80).optional(), baseVersion: z.number().int().optional() }),
+  z.object({
+    kind: z.literal("dart"),
+    dart: DartSchema,
+    /** Point touché sur la cible affichée (saisie en cliquant sur la cible). */
+    coords: z.object({ x: z.number().finite(), y: z.number().finite() }).optional(),
+    commandId: z.string().max(80).optional(),
+    baseVersion: z.number().int().optional(),
+  }),
   z.object({ kind: z.literal("next"), commandId: z.string().max(80).optional(), baseVersion: z.number().int().optional() }),
   z.object({ kind: z.literal("undo"), commandId: z.string().max(80).optional(), baseVersion: z.number().int().optional() }),
   z.object({
@@ -123,7 +133,8 @@ export const CommandInput = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("abandon"), commandId: z.string().max(80).optional() }),
 ]);
 
-export type Command = z.infer<typeof CommandInput> & { source?: EventSource; externalId?: string };
+/** `source` et `externalId` ne sont renseignés que par le serveur (intégration Autodarts). */
+export type Command = z.infer<typeof CommandInput> & { source?: EventSource; externalId?: string; coords?: DartCoords };
 
 export interface CommandResult {
   snapshot: MatchSnapshot;
@@ -139,11 +150,20 @@ export interface MatchHooks {
   onReopened?: (matchId: string) => void;
 }
 
+/** Coordonnées plausibles uniquement (nombres finis, à moins de 2 rayons du centre). */
+function validCoords(coords: DartCoords | undefined): DartCoords | undefined {
+  if (!coords || !Number.isFinite(coords.x) || !Number.isFinite(coords.y)) return undefined;
+  if (Math.hypot(coords.x, coords.y) > 2) return undefined;
+  return { x: coords.x, y: coords.y };
+}
+
 const ROOM_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
 function toGameEvent(e: EventRow): GameEvent {
   if (e.type === "dart") {
-    return { type: "dart", dart: { segment: e.segment ?? 0, multiplier: (e.multiplier ?? 0) as Dart["multiplier"] }, id: e.id, source: e.source };
+    const event: GameEvent = { type: "dart", dart: { segment: e.segment ?? 0, multiplier: (e.multiplier ?? 0) as Dart["multiplier"] }, id: e.id, source: e.source };
+    if (e.x !== null && e.y !== null) event.coords = { x: e.x, y: e.y };
+    return event;
   }
   return { type: "next", id: e.id, source: e.source };
 }
@@ -336,11 +356,23 @@ export class MatchService extends EventEmitter {
     return !!this.db.get("SELECT 1 FROM match_events WHERE match_id = $m AND external_id = $e", { $m: matchId, $e: externalId });
   }
 
-  private insertEvent(c: Cached, event: Omit<EventRow, "match_id" | "status" | "created_at" | "replaces"> & { replaces?: string | null }): EventRow {
-    const row: EventRow = { ...event, match_id: c.row.id, status: "active", replaces: event.replaces ?? null, created_at: nowIso() };
+  private insertEvent(
+    c: Cached,
+    event: Omit<EventRow, "match_id" | "status" | "created_at" | "replaces" | "x" | "y"> & { replaces?: string | null; coords?: DartCoords },
+  ): EventRow {
+    const { coords, ...fields } = event;
+    const row: EventRow = {
+      ...fields,
+      x: coords?.x ?? null,
+      y: coords?.y ?? null,
+      match_id: c.row.id,
+      status: "active",
+      replaces: event.replaces ?? null,
+      created_at: nowIso(),
+    };
     this.db.run(
-      `INSERT INTO match_events (id, match_id, seq, type, segment, multiplier, source, external_id, status, replaces, created_at)
-       VALUES ($id, $m, $seq, $type, $seg, $mul, $src, $ext, 'active', $rep, $at)`,
+      `INSERT INTO match_events (id, match_id, seq, type, segment, multiplier, source, external_id, x, y, status, replaces, created_at)
+       VALUES ($id, $m, $seq, $type, $seg, $mul, $src, $ext, $x, $y, 'active', $rep, $at)`,
       {
         $id: row.id,
         $m: row.match_id,
@@ -350,6 +382,8 @@ export class MatchService extends EventEmitter {
         $mul: row.multiplier,
         $src: row.source,
         $ext: row.external_id,
+        $x: row.x,
+        $y: row.y,
         $rep: row.replaces,
         $at: row.created_at,
       },
@@ -409,7 +443,9 @@ export class MatchService extends EventEmitter {
               return { snapshot: this.snapshot(c), applied: false, duplicate: true };
             }
             const id = randomUUID();
-            const event: GameEvent = raw.kind === "dart" ? { type: "dart", dart: raw.dart as Dart, id, source } : { type: "next", id, source };
+            const coords = raw.kind === "dart" ? validCoords(raw.coords) : undefined;
+            const event: GameEvent =
+              raw.kind === "dart" ? { type: "dart", dart: raw.dart as Dart, id, source, ...(coords ? { coords } : {}) } : { type: "next", id, source };
             const next = applyEvent(c.state, event);
             const row = this.insertEvent(c, {
               id,
@@ -419,6 +455,7 @@ export class MatchService extends EventEmitter {
               multiplier: raw.kind === "dart" ? raw.dart.multiplier : null,
               source,
               external_id: raw.kind === "dart" ? (raw.externalId ?? null) : null,
+              coords,
             });
             c.events.push(row);
             c.state = next;
@@ -452,6 +489,7 @@ export class MatchService extends EventEmitter {
               multiplier: raw.dart.multiplier,
               source,
               external_id: raw.externalId ?? null,
+              coords: validCoords(raw.coords),
               replaces: target.id,
             });
             c.events[index] = row;

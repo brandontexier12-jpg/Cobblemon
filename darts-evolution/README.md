@@ -55,6 +55,19 @@ Ouvrir `http://IP_DU_NAS:8080`, créer les joueurs (**Joueurs**), puis **Jouer**
   terminée : la partie est rejouée, statistiques et compétitions mises à jour.
 - **Parties interrompues** reprises après un redémarrage (liste « Parties en cours » sur l'accueil).
 
+**Écran de jeu** inspiré des écrans de scoring en direct
+- **Cible au centre** : chaque impact de la visite apparaît à sa position réelle (coordonnées Autodarts) ou au
+  centre de sa case (saisie manuelle), case touchée éclairée, cible à viser mise en évidence (entraînements).
+- **Barre de visite** : les 3 fléchettes, le total, la consigne (« retirez les fléchettes pour passer à… »)
+  et la sortie conseillée ; **panneaux des joueurs** de part et d'autre avec le score restant en très grand,
+  moyennes (partie et leg) et compteurs.
+- Saisie manuelle **en touchant la cible** ou au **pavé** (au choix, mémorisé par appareil).
+- **Sons** générés par l'appareil, sans fichier ni Internet : un son par impact (simple, double, triple,
+  25, bull, raté), bust, sortie, victoire, carillon au changement de joueur ; **annonceur vocal** en français
+  (score de la visite, « Cent quatre-vingts ! », « Bust ! », « Bob, il vous reste 40 », « À Bob de jouer »),
+  réglable : muet, scores et joueurs, ou chaque fléchette. Le son s'active au premier toucher de l'écran
+  (règle des navigateurs).
+
 **Autodarts** : connexion locale, impacts transmis au moteur en temps réel, retrait = fin de visite (jamais
 un impact), déduplication, reconnexion automatique sans double comptage, alerte en cas de coupure, bascule
 en saisie manuelle, test de connexion avec diagnostic, journal des événements, **mode test simulé** (exclu
@@ -183,7 +196,7 @@ Prérequis : Node.js ≥ 22.13 (module `node:sqlite`).
 npm install
 npm run dev:server     # API + Socket.IO sur :8080 (rechargement automatique)
 npm run dev:web        # interface sur :5173 (proxy vers :8080)
-npm test               # 108 tests (moteur, statistiques, adaptateur Autodarts, serveur)
+npm test               # 121 tests (moteur, statistiques, adaptateur Autodarts, serveur, interface)
 npm run typecheck      # vérification TypeScript de tous les paquets
 npm run build          # interface (Vite) + serveur assemblé (esbuild)
 npm start              # sert l'interface construite et l'API
@@ -194,23 +207,27 @@ Vérification de l'interface dans un navigateur (facultatif, nécessite Playwrig
 base vide) : `BASE=http://localhost:8080 TOUR=1 node tests/e2e/ui-smoke.cjs`.
 
 Résultats vérifiés lors de la livraison :
-- `npm test` : **9 fichiers, 108 tests réussis** (dont un flux Autodarts de bout en bout contre le
+- `npm test` : **11 fichiers, 121 tests réussis** (dont un flux Autodarts de bout en bout contre le
   simulateur, la reconnexion, les doublons, la persistance après redémarrage, les sauvegardes, la
   sécurité et le multijoueur Socket.IO) ;
 - `npm run typecheck` : sans erreur ;
-- construction Docker : tests exécutés dans l'image (108/108), image de 59 Mo compressée ;
+- construction Docker : tests exécutés dans l'image, image d'environ 59 Mo compressée ;
 - conteneur : état *healthy*, droits PUID/PGID appliqués, fuseau horaire correct, données conservées
   après redémarrage et remplacement d'image, conteneur joignant un Board Manager (simulé) sur une autre
   adresse réseau ;
-- interface : parcours complet automatisé dans Chromium (création de joueurs, partie 301 au pavé
-  tactile, checkout, victoire, statistiques, mode test Autodarts en direct) et visite de toutes les pages
-  sur ordinateur et téléphone, sans erreur ni défilement horizontal.
+- interface : parcours complet automatisé dans Chromium (création de joueurs, partie 301 saisie en touchant
+  la cible puis au pavé, checkout, victoire avec annonces vocales, statistiques, mode test Autodarts en
+  direct) et visite de toutes les pages sur ordinateur et téléphone, sans erreur ni défilement horizontal ;
+- matériel réel : détection Autodarts vérifiée par l'utilisateur (impacts « AD » T20, S7, S10, S5, total de
+  visite correct, attente du retrait avant le joueur suivant).
 
 ## Limites connues
 
 - **Autodarts** : API locale non officielle ; testée contre un simulateur et des jeux d'essai reconstitués
-  à partir des formes publiées (provenance dans `packages/autodarts-adapter/test/fixtures/README.md`),
-  **pas sur matériel réel**. La forme du bull intérieur n'a pas été observée en 2.0.2 (forme 1.x/2.0.0
+  à partir des formes publiées (provenance dans `packages/autodarts-adapter/test/fixtures/README.md`), et
+  vérifiée par l'utilisateur sur sa cible réelle (impacts et retrait). Le repère des coordonnées d'impact
+  (centre 0, anneau double ≈ 1, y vers le 20) n'a pas été mesuré sur matériel réel : si une position reçue
+  ne tombe pas dans la case comptée, la cible affiche la fléchette au centre de sa case. La forme du bull intérieur n'a pas été observée en 2.0.2 (forme 1.x/2.0.0
   utilisée). Certaines installations 2.x ne transmettent pas les lancers en local : détecté et signalé,
   saisie manuelle alors nécessaire. L'API cloud n'est pas utilisée.
 - **Multijoueur** : réseau local uniquement (pas d'accès Internet ; utiliser un VPN pour un accès distant).

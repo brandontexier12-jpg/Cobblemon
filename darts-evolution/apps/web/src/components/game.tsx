@@ -1,8 +1,7 @@
 import { dartDisplay, parseDart, type Dart } from "@darts-evolution/shared";
 import { useState, type FormEvent } from "react";
 import type { GameView, MatchPlayer, ThrownDart, VisitRecord } from "../lib/types";
-import { Icon } from "./Icon";
-import { Button, Modal, PlayerAvatar } from "./ui";
+import { Button, Modal } from "./ui";
 
 type Mult = 1 | 2 | 3;
 
@@ -124,47 +123,6 @@ export function DartChip({ dart, onClick, size = "md" }: { dart?: ThrownDart | n
     </button>
   ) : (
     <span className={cls}>{content}</span>
-  );
-}
-
-/** Cartes des joueurs : valeur principale en grand, joueur actif mis en évidence. */
-export function PlayerCards({ view, players }: { view: GameView; players: MatchPlayer[] }) {
-  const many = view.players.length > 4;
-  return (
-    <div className={`grid gap-3 ${view.players.length === 1 ? "grid-cols-1" : many ? "grid-cols-2 md:grid-cols-4" : "grid-cols-2"}`}>
-      {view.players.map((p) => {
-        const meta = players.find((m) => m.id === p.id);
-        return (
-          <article
-            key={p.id}
-            className={`relative rounded-2xl border p-3 transition sm:p-4 ${p.active ? "glow-active border-brand-500 bg-ink-800" : "border-ink-700 bg-ink-850"} ${p.eliminated ? "opacity-50" : ""}`}
-            aria-current={p.active ? "true" : undefined}
-          >
-            <header className="flex items-center gap-2">
-              {meta && <PlayerAvatar avatar={meta.avatar} color={meta.color} size={many ? 28 : 34} />}
-              <h3 className="min-w-0 flex-1 truncate font-semibold text-ink-100">{p.name}</h3>
-              {p.winner && (
-                <span className="flex items-center gap-1 rounded-full bg-brand-500 px-2 py-0.5 text-xs font-bold text-ink-950">
-                  <Icon name="trophy" size={13} /> Vainqueur
-                </span>
-              )}
-              {p.active && !p.winner && <span className="rounded-full bg-brand-500/20 px-2 py-0.5 text-xs font-semibold text-brand-300">À jouer</span>}
-              {p.eliminated && <span className="rounded-full bg-ink-700 px-2 py-0.5 text-xs text-ink-300">Éliminé</span>}
-            </header>
-            <div className="mt-1 text-xs uppercase tracking-wider text-ink-400">{p.mainLabel}</div>
-            <div className={`font-display tabular font-bold leading-none ${many ? "text-5xl" : "text-6xl sm:text-7xl"} ${p.active ? "text-ink-100" : "text-ink-200"}`}>{p.main}</div>
-            <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-              {p.details.map((d) => (
-                <div key={d.label} className="flex gap-1.5">
-                  <dt className="text-ink-400">{d.label}</dt>
-                  <dd className="tabular font-medium text-ink-200">{d.value}</dd>
-                </div>
-              ))}
-            </dl>
-          </article>
-        );
-      })}
-    </div>
   );
 }
 

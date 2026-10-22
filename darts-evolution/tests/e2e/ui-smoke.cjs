@@ -18,6 +18,19 @@ async function shot(page, name) {
 (async () => {
   const browser = await chromium.launch(LAUNCH);
   const desktop = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  // Enregistre les annonces vocales (la synthèse vocale peut être absente du navigateur de test).
+  await desktop.addInitScript(() => {
+    window.__spoken = [];
+    if (window.speechSynthesis) {
+      const speak = window.speechSynthesis.speak.bind(window.speechSynthesis);
+      window.speechSynthesis.speak = (u) => {
+        window.__spoken.push(u.text);
+        try {
+          speak(u);
+        } catch {}
+      };
+    }
+  });
   const page = await desktop.newPage();
   page.on("console", (m) => m.type() === "error" && errors.push(`console: ${m.text()}`));
   page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
@@ -45,13 +58,20 @@ async function shot(page, name) {
   await page.getByRole("radio", { name: "Manuelle" }).click();
   await page.getByRole("button", { name: "Lancer la partie" }).click();
   await page.waitForURL(/\/partie\//);
+  // Saisie en touchant la cible : triple 20 (rayon 0,606 vers le haut, dessin de ±1,32).
+  const board = page.getByRole("group", { name: /Cible/ });
+  const box = await board.boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2 - (0.606 / 1.32) * (box.height / 2));
+  await page.getByText("241", { exact: true }).filter({ visible: true }).first().waitFor();
+  await shot(page, "03a-saisie-sur-la-cible");
+  await page.getByRole("radio", { name: /Pavé/ }).click();
   const pad = page.getByLabel("Saisie manuelle des fléchettes");
   const tap = async (mult, n) => {
     if (mult) await pad.getByRole("button", { name: mult, exact: true }).click();
     await pad.getByRole("button", { name: `${mult || "Simple"} ${n}`, exact: true }).click();
   };
-  for (let i = 0; i < 3; i++) await tap("Triple", 20); // Alice 121
-  await page.getByText("121", { exact: true }).first().waitFor();
+  for (let i = 0; i < 2; i++) await tap("Triple", 20); // Alice 121
+  await page.getByText("121", { exact: true }).filter({ visible: true }).first().waitFor();
   await shot(page, "03-partie-x01-desktop");
   for (let i = 0; i < 3; i++) await tap("", 1); // Bob 298
   await tap("Triple", 20); // Alice 61
@@ -59,8 +79,14 @@ async function shot(page, name) {
   await page.getByText("D20").first().waitFor(); // checkout suggéré
   await shot(page, "04-checkout-suggere");
   await tap("Double", 20); // victoire
-  await page.getByText("Victoire de Alice").waitFor();
+  await page.getByText("Victoire de Alice").first().waitFor();
   await shot(page, "05-victoire");
+  await page.waitForTimeout(800); // les annonces suivent les sons d'impact
+  const spoken = await page.evaluate(() => window.__spoken);
+  const hasSpeech = await page.evaluate(() => !!window.speechSynthesis);
+  console.log(`Annonces vocales : ${hasSpeech ? JSON.stringify(spoken) : "synthèse vocale absente de ce navigateur"}`);
+  if (hasSpeech && !spoken.includes("Cent quatre-vingts !")) errors.push("annonce « Cent quatre-vingts » absente");
+  if (hasSpeech && !spoken.some((t) => t.includes("Victoire de Alice"))) errors.push("annonce de victoire absente");
 
   // Statistiques.
   await page.goto(`${BASE}/statistiques`);
@@ -83,7 +109,7 @@ async function shot(page, name) {
   const sim = (body) => page.evaluate((b) => fetch("/api/autodarts/simulation/action", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }).then((r) => r.status), body);
   await sim({ action: "throw", dart: "T20" });
   await sim({ action: "throw", dart: "T19" });
-  await page.getByText("384", { exact: true }).first().waitFor({ timeout: 5000 });
+  await page.getByText("384", { exact: true }).filter({ visible: true }).first().waitFor({ timeout: 5000 });
   await shot(page, "08-partie-autodarts-direct");
 
   // Téléphone.
@@ -94,7 +120,7 @@ async function shot(page, name) {
   await mp.getByText("Derniers résultats").waitFor();
   await shot(mp, "09-accueil-telephone");
   await mp.goto(page.url());
-  await mp.getByText("384", { exact: true }).first().waitFor();
+  await mp.getByText("384", { exact: true }).filter({ visible: true }).first().waitFor();
   await shot(mp, "10-partie-telephone");
   const overflow = await mp.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   if (overflow > 1) errors.push(`défilement horizontal sur téléphone : ${overflow}px`);

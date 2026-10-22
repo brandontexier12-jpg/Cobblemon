@@ -48,7 +48,7 @@ darts-evolution/
 |---|---|
 | `players` | profils (pseudo, avatar, couleur, niveau, invité, archivage) |
 | `matches`, `match_players` | parties : mode, options, configuration préparée, statut, saisie, code de salle, simulation |
-| `match_events` | journal (fléchettes, fins de visite), provenance, identifiant Autodarts (unique), statut |
+| `match_events` | journal (fléchettes, fins de visite), provenance, identifiant Autodarts (unique), statut, position de l'impact `x`/`y` (migration 2) |
 | `match_commands` | identifiants de commandes déjà appliquées (idempotence) |
 | `match_visits`, `match_results` | données dérivées pour statistiques et historique |
 | `exercises`, `weekly_goals` | exercices personnalisés, objectifs hebdomadaires |

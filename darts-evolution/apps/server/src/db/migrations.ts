@@ -199,4 +199,13 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX autodarts_events_received ON autodarts_events(received_at);
     `,
   },
+  {
+    version: 2,
+    name: "position des impacts",
+    sql: `
+      -- Position de l'impact (Autodarts, ou clic sur la cible affichée) ; NULL si inconnue.
+      ALTER TABLE match_events ADD COLUMN x REAL;
+      ALTER TABLE match_events ADD COLUMN y REAL;
+    `,
+  },
 ];

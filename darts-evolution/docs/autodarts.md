@@ -107,6 +107,12 @@ Règles appliquées (et testées) :
 12. **Simulation** : les impacts du mode test portent `simulated: true` / source `simulation` ; ils ne sont
     acceptés que par une partie marquée « simulation », elle-même exclue de toutes les statistiques.
     Un impact réel est refusé par une partie de test et inversement.
+13. **Position de l'impact** : les coordonnées `coords` de chaque lancer sont enregistrées avec la fléchette
+    (colonnes `x`, `y`) et affichées sur la cible de l'écran de jeu. Elles ne servent jamais au calcul du
+    score. Repère supposé : centre (0, 0), bord extérieur du double = 1, y vers le 20 (valeurs des jeux
+    d'essai : T20 ≈ (0, 0,60), D20 ≈ (0, 0,97)). Si une position ne tombe pas dans la case comptée (repère
+    différent, fléchette corrigée), la fléchette est dessinée au centre de sa case ; un repère à axe
+    vertical inversé est reconnu automatiquement.
 
 Le score reste calculé **uniquement par le serveur** ; la saisie manuelle reste disponible à tout moment
 (bouton « Passer en saisie manuelle » ; saisie d'une fléchette manquée par la détection).
@@ -174,7 +180,11 @@ Simulateur autonome (pour essayer sans le NAS) :
 npm run simulator -- --host 0.0.0.0 --port 3180     # page de contrôle : http://IP:3180/
 ```
 
-## 8. Test sur le matériel réel (à effectuer)
+## 8. Test sur le matériel réel
+
+Premier essai réalisé par l'utilisateur (octobre 2026) : impacts T20, S7, S10 puis S5 reçus avec le badge
+« AD », totaux de visite corrects, attente du retrait avant le joueur suivant. Les étapes ci-dessous
+restent la procédure complète (version du Board Manager à relever lors du test de connexion).
 
 1. Vérifier que le Board Manager tourne et que la détection fonctionne dans l'interface Autodarts.
 2. Dans DARTS EVOLUTION → Intégration Autodarts : saisir l'IP, port 3180, **Tester la connexion**.
@@ -185,6 +195,9 @@ npm run simulator -- --host 0.0.0.0 --port 3180     # page de contrôle : http:/
 5. Lancer une partie X01 en saisie **Autodarts** ; lancer un simple, un double, un triple, le bull, un raté
    hors cible : chaque impact apparaît avec le badge « AD » et la bonne valeur.
 6. Retirer les fléchettes : le joueur suivant est sélectionné, aucun impact n'est ajouté.
+   Sur la cible de l'écran de jeu, chaque impact doit apparaître à l'endroit réel où la fléchette s'est
+   plantée (repère numéroté 1, 2, 3 au trait plein ; un repère en pointillés signale une position
+   représentative, coordonnées absentes ou incohérentes).
 7. Retirer après 2 fléchettes : la 3e est comptée ratée.
 8. Débrancher le câble réseau de la machine Autodarts 30 s puis le rebrancher : la partie est conservée,
    la reconnexion est automatique, aucune fléchette n'est comptée deux fois.

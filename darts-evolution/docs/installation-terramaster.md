@@ -41,10 +41,10 @@ tests automatiques compris). Sur un NAS peu puissant, mettez `RUN_TESTS=false` d
 
 ```bash
 # Sur un ordinateur avec Docker, dans le dossier darts-evolution :
-docker build -t darts-evolution:1.0.0 .
-docker save darts-evolution:1.0.0 | gzip > darts-evolution-1.0.0.tar.gz
+docker build -t darts-evolution:1.1.0 .
+docker save darts-evolution:1.1.0 | gzip > darts-evolution-1.1.0.tar.gz
 # NAS ARM64 (ex. processeurs Realtek/ARM) depuis un PC x86 :
-docker buildx build --platform linux/arm64 -t darts-evolution:1.0.0 --output type=docker,dest=darts-evolution-arm64.tar .
+docker buildx build --platform linux/arm64 -t darts-evolution:1.1.0 --output type=docker,dest=darts-evolution-arm64.tar .
 ```
 
 Dans Docker Manager → **Images** → **Ajouter / Importer** le fichier `.tar(.gz)`. Copiez ensuite
@@ -93,7 +93,7 @@ Docker Manager → Conteneurs → `darts-evolution` → **Journaux**. Lignes att
 
 ```
 Migrations appliquées.
-DARTS EVOLUTION 1.0.0 prêt sur http://127.0.0.1:8080 (port 8080).
+DARTS EVOLUTION 1.1.0 prêt sur http://127.0.0.1:8080 (port 8080).
 ```
 
 L'état du conteneur doit passer à **sain (healthy)** en moins d'une minute (contrôle de santé intégré).

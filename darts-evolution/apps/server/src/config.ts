@@ -62,6 +62,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     logLevel: e.LOG_LEVEL,
     webDistPath: e.WEB_DIST_PATH ? path.resolve(e.WEB_DIST_PATH) : null,
     sessionHours: e.SESSION_HOURS,
-    version: env.APP_VERSION ?? "1.0.0",
+    version: env.APP_VERSION ?? "1.1.0",
   };
 }

@@ -7,6 +7,7 @@ import {
   type GameState,
   type ModeRules,
   type PlayerRef,
+  type DartCoords,
   type ThrownDart,
   type VisitEndReason,
   type VisitRecord,
@@ -83,7 +84,11 @@ function completeVisit<C>(state: GameState<C>, reason: VisitEndReason): void {
   }
 }
 
-function throwDart<C>(state: GameState<C>, dart: Dart, meta: { id?: string; source?: string; padded?: boolean }): void {
+function throwDart<C>(
+  state: GameState<C>,
+  dart: Dart,
+  meta: { id?: string; source?: string; padded?: boolean; coords?: DartCoords },
+): void {
   const rules = rulesOf(state);
   const { turn } = state;
   const outcome = rules.onDart(
@@ -112,6 +117,7 @@ function throwDart<C>(state: GameState<C>, dart: Dart, meta: { id?: string; sour
   if (meta.padded) thrown.padded = true;
   if (meta.id) thrown.eventId = meta.id;
   if (meta.source) thrown.source = meta.source;
+  if (meta.coords) thrown.coords = { x: meta.coords.x, y: meta.coords.y };
   turn.darts.push(thrown);
 
   if (outcome.finished) {
@@ -156,7 +162,7 @@ export function applyEvent<C>(current: GameState<C>, event: GameEvent): GameStat
   if (event.type === "dart") {
     if (!isValidDart(event.dart)) throw new GameRuleError("invalid_dart", "Fléchette invalide.");
     if (state.turn.complete) advance(state);
-    throwDart(state, event.dart, { id: event.id, source: event.source });
+    throwDart(state, event.dart, { id: event.id, source: event.source, coords: event.coords });
   } else if (event.type === "next") {
     if (!state.turn.complete) {
       while (!state.turn.complete) throwDart(state, MISS, { padded: true, source: event.source });

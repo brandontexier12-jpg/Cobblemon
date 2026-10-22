@@ -190,6 +190,7 @@ export const x01: ModeRules<X01Config, X01State> = {
         ...(multiSet ? [{ label: "Sets", value: String(m.setsWon[i]) }] : []),
         { label: "Legs", value: String(m.legsWon[i]) },
         { label: "Moy. 3 fl.", value: average3(own) },
+        ...(multiSet || config.legs > 1 ? [{ label: "Moy. leg", value: average3(legVisits.filter((v) => v.playerId === p.id)) }] : []),
         { label: "Fléchettes (leg)", value: String(dartsThisLeg) },
         { label: "Dernière visite", value: last ? (last.bust ? "Bust" : String(last.points)) : "–" },
       ];

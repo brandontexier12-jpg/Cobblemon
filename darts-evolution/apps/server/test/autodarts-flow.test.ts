@@ -36,6 +36,9 @@ describe("intégration Autodarts de bout en bout (simulateur de Board Manager)",
     await vi.waitFor(async () => expect((await view(app, match.id)).players[0].main).toBe("361"));
     let v = await view(app, match.id);
     expect(v.current.darts.map((d: any) => d.source)).toEqual(["autodarts", "autodarts", "autodarts"]);
+    // La position réelle de chaque impact est conservée (affichage sur la cible).
+    expect(v.current.darts[0].coords).toEqual({ x: 0, y: 0.6 });
+    expect(v.current.darts.every((d: any) => typeof d.coords?.x === "number")).toBe(true);
     expect(v.current.awaitingNext).toBe(true);
 
     // Une 4e fléchette avant le retrait est ignorée (jamais comptée au joueur suivant).
