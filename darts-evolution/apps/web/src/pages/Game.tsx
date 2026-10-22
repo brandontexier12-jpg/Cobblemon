@@ -438,7 +438,7 @@ export function GamePage() {
         <KillerDraw
           players={view.killer.players.map((k) => match.players.find((p) => p.id === k.id)!).filter(Boolean)}
           numbers={view.killer.players.map((k) => k.number)}
-          voice={sound.announcer !== "off"}
+          voice={sound.announcer !== "off" && !activePack}
           onDone={closeDraw}
         />
       )}

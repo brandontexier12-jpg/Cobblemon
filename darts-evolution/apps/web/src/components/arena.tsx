@@ -279,7 +279,7 @@ export function SoundSettingsModal({
   return (
     <Modal open={open} onClose={onClose} title="Sons et annonces">
       <div className="space-y-4">
-        <Toggle checked={settings.effects} onChange={(effects) => onChange({ ...settings, effects })} label="Effets sonores (impacts, bust, sortie, joueur suivant)" />
+        <Toggle checked={settings.effects} onChange={(effects) => onChange({ ...settings, effects })} label="Effets sonores (impacts, bust, sortie, carillon de changement de joueur)" />
         <div>
           <div className="mb-2 flex items-center gap-2 text-sm text-ink-300">
             <Icon name="voice" size={16} /> Annonceur vocal
@@ -290,7 +290,7 @@ export function SoundSettingsModal({
             onChange={(announcer) => onChange({ ...settings, announcer })}
             options={[
               { value: "off", label: "Muet" },
-              { value: "scores", label: "Scores et joueurs" },
+              { value: "scores", label: "Scores" },
               { value: "darts", label: "Chaque fléchette" },
             ]}
           />
@@ -312,13 +312,6 @@ export function SoundSettingsModal({
           </select>
           {packs.length === 0 && <span className="mt-1 block text-xs text-ink-400">Importez un pack de voix dans Paramètres → Packs de voix.</span>}
         </label>
-        {pack && (
-          <Toggle
-            checked={settings.nameCalls !== false}
-            onChange={(nameCalls) => onChange({ ...settings, nameCalls })}
-            label="Annoncer aussi le joueur suivant et le vainqueur (voix de l'appareil)"
-          />
-        )}
         <label className="block">
           <span className="mb-1 block text-sm text-ink-300">Volume : {Math.round(settings.volume * 100)} %</span>
           <input

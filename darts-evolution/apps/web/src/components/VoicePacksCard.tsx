@@ -13,7 +13,7 @@ const ROLES: { role: Role; label: string; hint: string }[] = [
   { role: "leg", label: "Leg gagné", hint: "sinon : score de la sortie" },
   { role: "match", label: "Match gagné", hint: "sinon : son du leg gagné" },
   { role: "bust", label: "Bust", hint: "sinon : son « 0 » (No score)" },
-  { role: "next", label: "Joueur suivant", hint: "joué avant le nom du joueur" },
+  { role: "next", label: "Joueur suivant", hint: "joué au changement de joueur" },
 ];
 
 /** Nom lisible tiré du nom de fichier (sans extension ni empreinte). */

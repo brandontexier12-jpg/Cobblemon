@@ -48,15 +48,13 @@ describe("sons de partie", () => {
       { kind: "hit", segment: 1, multiplier: 2 },
       { kind: "visit", points: 67, bust: false, playerName: "Alice", announce: true },
     ]);
-    expect(cues[3]).toEqual([{ kind: "turn", playerName: "Bob", remaining: null, solo: false, newLeg: false }]);
+    expect(cues[3]).toEqual([{ kind: "turn", newLeg: false }]);
   });
 
-  it("annonce le reste quand une sortie est possible", () => {
-    // Alice 101 → 40 ; Bob joue ; Alice revient sur 40.
+  it("au changement de joueur, seulement le carillon (le reste n'est jamais annoncé)", () => {
+    // Alice revient sur 40, score terminable : aucune annonce du reste.
     const { cues } = run(101, "T20", "S1", "M", "next", "S1", "S1", "S1", "next");
-    // 101 se termine en 3 fléchettes (T17, Bull) : le reste est annoncé.
-    expect(cues[3]).toEqual([{ kind: "turn", playerName: "Bob", remaining: 101, solo: false, newLeg: false }]);
-    expect(cues[7]).toEqual([{ kind: "turn", playerName: "Alice", remaining: 40, solo: false, newLeg: false }]);
+    expect(cues[7]).toEqual([{ kind: "turn", newLeg: false }]);
   });
 
   it("bust, sortie et victoire", () => {
@@ -100,7 +98,7 @@ describe("sons de partie", () => {
     const { cues } = run(501, "T20", "next");
     expect(cues[1]).toEqual([
       { kind: "visit", points: 60, bust: false, playerName: "Alice", announce: true },
-      { kind: "turn", playerName: "Bob", remaining: null, solo: false, newLeg: false },
+      { kind: "turn", newLeg: false },
     ]);
   });
 

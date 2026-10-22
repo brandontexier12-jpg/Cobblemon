@@ -1,10 +1,10 @@
-# Variante sans construction : à utiliser quand l'image darts-evolution:1.4.0 a été construite sur un
+# Variante sans construction : à utiliser quand l'image darts-evolution:1.4.1 a été construite sur un
 # ordinateur puis importée dans Docker Manager (Images → Importer). Même configuration que docker-compose.yml.
 name: darts-evolution
 
 services:
   darts-evolution:
-    image: darts-evolution:1.4.0
+    image: darts-evolution:1.4.1
     container_name: darts-evolution
     restart: unless-stopped
     init: true

@@ -20,16 +20,14 @@ import type { MatchSnapshot } from "./types";
 
 export interface SoundSettings {
   effects: boolean;
-  /** off : muet ; scores : scores, sorties et joueur suivant ; darts : en plus, chaque fléchette. */
+  /** off : muet ; scores : scores et sorties ; darts : en plus, chaque fléchette. */
   announcer: "off" | "scores" | "darts";
   volume: number;
-  /** Pack de voix importé utilisé par l'annonceur (null : voix de l'appareil). */
+  /** Pack de voix importé utilisé par l'annonceur (null : voix de l'appareil). Avec un pack, seule sa voix parle. */
   voicePack?: string | null;
-  /** Avec un pack de voix : annoncer aussi le joueur suivant avec la voix de l'appareil. */
-  nameCalls?: boolean;
 }
 
-export const DEFAULT_SOUND_SETTINGS: SoundSettings = { effects: true, announcer: "scores", volume: 0.8, voicePack: null, nameCalls: true };
+export const DEFAULT_SOUND_SETTINGS: SoundSettings = { effects: true, announcer: "scores", volume: 0.8, voicePack: null };
 
 /** Pack de voix tel que renvoyé par /api/voices. */
 export interface VoicePackInfo {
@@ -121,7 +119,6 @@ function playCues(cues: GameCue[], s: SoundSettings, pack: VoicePackInfo | null)
           const who = cue.winnerNames.length === 1 ? `Victoire de ${cue.winnerNames[0]} !` : cue.winnerNames.length > 1 ? "Égalité !" : "Séance terminée.";
           if (v.usesPack) {
             say(v.role("match") ?? v.role("leg") ?? (cue.points ? v.score(cue.points) : null));
-            if (s.nameCalls !== false) say({ text: who });
           } else {
             say({ text: cue.points ? `Checkout ${cue.points} ! ${who}` : who });
           }
@@ -131,24 +128,22 @@ function playCues(cues: GameCue[], s: SoundSettings, pack: VoicePackInfo | null)
         delay += 150;
         window.setTimeout(() => {
           if (s.effects) playKiller();
-          if (!v.usesPack || s.nameCalls !== false) say({ text: `${cue.playerName} est KILLER !`, rate: 0.95, pitch: 0.9 });
+          if (!v.usesPack) say({ text: `${cue.playerName} est KILLER !`, rate: 0.95, pitch: 0.9 });
         }, delay);
         break;
       case "eliminated":
         delay += 150;
         window.setTimeout(() => {
           if (s.effects) playEliminated();
-          if (!v.usesPack || s.nameCalls !== false) say({ text: `${cue.playerName} est éliminé.` });
+          if (!v.usesPack) say({ text: `${cue.playerName} est éliminé.` });
         }, delay);
         break;
       case "turn":
+        // Changement de joueur : carillon (et sons du pack) ; le reste et le nom ne sont pas annoncés.
         window.setTimeout(() => {
           if (s.effects) playTurnChange();
           if (cue.newLeg) say(v.role("gameon"));
           say(v.role("next"));
-          if (v.usesPack && s.nameCalls === false) return;
-          if (cue.remaining !== null) say({ text: `${cue.playerName}, il vous reste ${cue.remaining}.` });
-          else if (!cue.solo) say({ text: `À ${cue.playerName} de jouer.` }); // seul : le carillon suffit
         }, delay);
         break;
     }

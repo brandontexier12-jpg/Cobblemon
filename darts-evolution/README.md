@@ -83,8 +83,9 @@ partie). Les packs restent sur le NAS (`data/voices/`) et ne sont jamais intégr
 - Saisie manuelle **en touchant la cible** ou au **pavé** (au choix, mémorisé par appareil).
 - **Sons** générés par l'appareil, sans fichier ni Internet : un son par impact (simple, double, triple,
   25, bull, raté), bust, sortie, victoire, carillon au changement de joueur ; **annonceur vocal** en français
-  (score de la visite, « Cent quatre-vingts ! », « Bust ! », « Bob, il vous reste 40 », « À Bob de jouer »),
-  réglable : muet, scores et joueurs, ou chaque fléchette. Le son s'active au premier toucher de l'écran
+  (score de la visite, « Cent quatre-vingts ! », « Bust ! », sortie et vainqueur ; ni le reste ni le joueur
+  suivant ne sont annoncés), réglable : muet, scores, ou chaque fléchette. Avec un pack de voix, seule la voix
+  du pack parle. Le son s'active au premier toucher de l'écran
   (règle des navigateurs).
 
 **Autodarts** : connexion locale, impacts transmis au moteur en temps réel, retrait = fin de visite (jamais
