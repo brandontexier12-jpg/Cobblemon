@@ -117,6 +117,23 @@ Règles appliquées (et testées) :
 Le score reste calculé **uniquement par le serveur** ; la saisie manuelle reste disponible à tout moment
 (bouton « Passer en saisie manuelle » ; saisie d'une fléchette manquée par la détection).
 
+### Calibration des caméras depuis l'application
+
+Bouton **« Recalibrer »** (écran de jeu en saisie Autodarts) et carte **« Calibration des caméras »** (page
+Intégration Autodarts). L'application envoie à Autodarts :
+
+- `POST /api/config/calibration/auto` : calibration automatique de toutes les caméras ;
+- `POST /api/config/calibration/auto/<caméra>?distortion=true` : une caméra, avec correction de la distorsion
+  (caméras numérotées à partir de 0 ; leur nombre est lu dans `GET /api/config`, champ `cam.cams`).
+
+Ces routes ne sont pas documentées officiellement : ce sont celles qu'emploient deux intégrations
+indépendantes, l'adaptateur ioBroker d'Autodarts (`lib/systemInfo.js`) et l'intégration Home Assistant
+« ha-autodarts » (`local_api.py`, avec ses tests). La réponse arrive à la fin de la calibration (délai accordé :
+60 s). Pendant la calibration et 5 s après, les impacts et retraits signalés sont ignorés et journalisés
+(la partie n'est jamais faussée) ; une seconde demande simultanée est refusée. Un refus d'Autodarts (HTTP 409)
+ou une version sans ces routes (HTTP 404) est expliqué à l'utilisateur. Vérifié contre le simulateur ;
+**à confirmer sur votre matériel** (retirer les fléchettes avant de lancer).
+
 ## 4. Configuration
 
 Variables d'environnement (valeurs initiales, modifiables ensuite dans « Intégration Autodarts ») :

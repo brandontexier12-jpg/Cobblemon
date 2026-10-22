@@ -24,7 +24,7 @@ RUN npm run build
 
 # ---------- Étape 2 : image d'exécution minimale ----------
 FROM ${NODE_IMAGE} AS runtime
-ARG APP_VERSION=1.4.1
+ARG APP_VERSION=1.5.0
 LABEL org.opencontainers.image.title="DARTS EVOLUTION" \
       org.opencontainers.image.description="Fléchettes : scoring, entraînements, statistiques, compétitions, intégration Autodarts" \
       org.opencontainers.image.version="${APP_VERSION}"

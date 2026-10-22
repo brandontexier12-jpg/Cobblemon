@@ -104,6 +104,7 @@ export interface AutodartsOverview {
   boundMatchId: string | null;
   simulation: boolean;
   compatibility: string;
+  calibrating: boolean;
 }
 
 export interface X01Summary {

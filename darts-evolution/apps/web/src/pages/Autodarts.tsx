@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { autodartsLabel } from "../components/AutodartsStatus";
+import { CalibrateButton } from "../components/CalibrateButton";
 import { Icon } from "../components/Icon";
 import { Badge, Button, Card, Field, inputClass, PageHeader, Segmented, Toggle, useUi } from "../components/ui";
 import { api } from "../lib/api";
@@ -149,6 +150,8 @@ export function AutodartsPage() {
             </Button>
           </div>
         </Card>
+
+        <CalibrationCard />
 
         <Card title="Configuration">
           {locked && (
@@ -303,5 +306,35 @@ export function AutodartsPage() {
         </ul>
       </Card>
     </div>
+  );
+}
+
+/** Calibration automatique des caméras par l'API locale d'Autodarts. */
+function CalibrationCard() {
+  const { autodarts } = useAppState();
+  const cameras = useAsync(() => api.get<{ count: number | null }>("/api/autodarts/cameras"), [autodarts?.status.state]);
+  const running = !!autodarts?.calibrating || autodarts?.status.boardStatus === "Calibrating";
+  const count = cameras.data?.count ?? 0;
+  return (
+    <Card title="Calibration des caméras">
+      <p className="text-sm text-ink-300">
+        Relance la calibration automatique d'Autodarts sans quitter l'application, par exemple si des impacts sont mal détectés ou après avoir bougé la cible ou une
+        caméra. Retirez les fléchettes avant de lancer ; la calibration dure jusqu'à une minute et les impacts ne sont pas comptés pendant ce temps.
+      </p>
+      {running && (
+        <p className="mt-3 flex items-center gap-2 rounded-xl border border-[#3987e5]/40 bg-[#3987e5]/10 p-2 text-sm text-[#9ec5f4]">
+          <Icon name="refresh" size={16} className="animate-spin" /> Calibration en cours…
+        </p>
+      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <CalibrateButton size="md" label="Calibration automatique (toutes les caméras)" />
+        {Array.from({ length: count }, (_, i) => (
+          <CalibrateButton key={i} camera={i} />
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-ink-400">
+        Caméra par caméra : calibration avec correction de la distorsion de l'objectif. Commande envoyée à Autodarts : <code>POST /api/config/calibration/auto</code>.
+      </p>
+    </Card>
   );
 }

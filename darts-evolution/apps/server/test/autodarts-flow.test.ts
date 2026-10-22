@@ -108,6 +108,51 @@ describe("intégration Autodarts de bout en bout (simulateur de Board Manager)",
     }, { timeout: 5000 });
   });
 
+  it("recalibre les caméras par l'API locale, sans compter d'impact pendant la calibration", async () => {
+    const { sim, app } = await setup();
+    const [a, b] = await createPlayers(app, "Alice", "Bob");
+    const { match } = await app.json("POST", "/api/matches", { mode: "x01", options: { startScore: 501 }, playerIds: [a, b], inputMode: "autodarts" });
+    expect((await app.json("GET", "/api/autodarts/cameras")).count).toBe(0);
+    const pending = app.json("POST", "/api/autodarts/calibrate", {});
+    // Pendant la calibration : statut « Calibrating » et une seconde demande est refusée.
+    await vi.waitFor(async () => expect((await app.json("GET", "/api/autodarts")).calibrating).toBe(true));
+    const twice = await app.request("POST", "/api/autodarts/calibrate", {});
+    expect(twice.statusCode).toBe(409);
+    sim.throwDart("T20"); // image parasite pendant la calibration
+    expect(await pending).toEqual({ message: "Calibration automatique terminée (toutes les caméras)." });
+    expect(sim.commands).toContain("calibrate");
+    await vi.waitFor(async () => {
+      const journal = await app.json("GET", "/api/autodarts/journal");
+      expect(journal.some((j: any) => j.kind === "calibration" && j.outcome === "terminée")).toBe(true);
+      expect(journal.some((j: any) => j.kind === "impact" && j.outcome === "ignoré : calibration des caméras en cours")).toBe(true);
+    });
+    expect((await view(app, match.id)).current.darts).toHaveLength(0);
+    // Une seule caméra (correction de la distorsion).
+    expect(await app.json("POST", "/api/autodarts/calibrate", { camera: 1 })).toEqual({ message: "Calibration automatique terminée (caméra 2)." });
+    expect(sim.commands).toContain("calibrate:1");
+    expect((await app.request("POST", "/api/autodarts/calibrate", { camera: 9 })).statusCode).toBe(400);
+  });
+
+  it("explique un refus d'Autodarts et une version sans calibration par l'API", async () => {
+    for (const [calibration, pattern] of [
+      ["refuse", /a refusé la calibration/],
+      ["absent", /ne propose pas la calibration/],
+    ] as const) {
+      const sim = new BoardManagerSimulator({ generation: 2, calibration, cameras: 3 });
+      await sim.start();
+      const app = await startTestApp();
+      cleanups.push(() => removeDir(app.dir), () => sim.stop(), () => app.close());
+      await app.built.listen();
+      await app.json("PUT", "/api/autodarts/config", { enabled: true, host: "127.0.0.1", port: sim.port, protocol: "http" });
+      await vi.waitFor(async () => expect((await app.json("GET", "/api/autodarts")).status.state).toBe("connected"), { timeout: 5000 });
+      expect((await app.json("GET", "/api/autodarts/cameras")).count).toBe(3);
+      const res = await app.request("POST", "/api/autodarts/calibrate", {});
+      expect(res.statusCode).toBe(502);
+      expect(res.json().message).toMatch(pattern);
+      expect((await app.json("GET", "/api/autodarts")).calibrating).toBe(false);
+    }
+  });
+
   it("correction faite par la cible et passage en saisie manuelle", async () => {
     const { sim, app } = await setup();
     const [a] = await createPlayers(app, "Alice");

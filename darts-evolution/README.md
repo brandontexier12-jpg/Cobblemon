@@ -88,7 +88,9 @@ partie). Les packs restent sur le NAS (`data/voices/`) et ne sont jamais intégr
   du pack parle. Le son s'active au premier toucher de l'écran
   (règle des navigateurs).
 
-**Autodarts** : connexion locale, impacts transmis au moteur en temps réel, retrait = fin de visite (jamais
+**Autodarts** : **bouton « Recalibrer »** (en partie et page Intégration : toutes les caméras, ou une par une
+avec correction de la distorsion) qui lance la calibration automatique d'Autodarts par son API locale, impacts
+ignorés pendant la calibration ; connexion locale, impacts transmis au moteur en temps réel, retrait = fin de visite (jamais
 un impact), déduplication, reconnexion automatique sans double comptage, alerte en cas de coupure, bascule
 en saisie manuelle, test de connexion avec diagnostic, journal des événements, **mode test simulé** (exclu
 des statistiques), outil de capture du flux réel.
@@ -233,7 +235,7 @@ Prérequis : Node.js ≥ 22.13 (module `node:sqlite`).
 npm install
 npm run dev:server     # API + Socket.IO sur :8080 (rechargement automatique)
 npm run dev:web        # interface sur :5173 (proxy vers :8080)
-npm test               # 161 tests (moteur, bots, statistiques, Autodarts, serveur, mise à jour, voix, interface)
+npm test               # 163 tests (moteur, bots, statistiques, Autodarts, serveur, mise à jour, voix, interface)
 npm run typecheck      # vérification TypeScript de tous les paquets
 npm run build          # interface (Vite) + serveur assemblé (esbuild)
 npm start              # sert l'interface construite et l'API
@@ -245,7 +247,7 @@ Vérification de l'interface dans un navigateur (facultatif, nécessite Playwrig
 base vide) : `BASE=http://localhost:8080 TOUR=1 node tests/e2e/ui-smoke.cjs`.
 
 Résultats vérifiés lors de la livraison :
-- `npm test` : **16 fichiers, 161 tests réussis** (dont un flux Autodarts de bout en bout contre le
+- `npm test` : **16 fichiers, 163 tests réussis** (dont un flux Autodarts de bout en bout contre le
   simulateur, la reconnexion, les doublons, la persistance après redémarrage, les sauvegardes, la
   sécurité et le multijoueur Socket.IO) ;
 - `npm run typecheck` : sans erreur ;

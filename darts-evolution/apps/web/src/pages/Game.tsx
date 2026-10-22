@@ -5,6 +5,7 @@ import { PlayerPanel, SoundSettingsModal, VisitBar } from "../components/arena";
 import { AutodartsPill } from "../components/AutodartsStatus";
 import { Dartboard, type KillerSegment } from "../components/Dartboard";
 import { KillerDraw } from "../components/KillerDraw";
+import { CalibrateButton } from "../components/CalibrateButton";
 import { CricketTable, DartPad, DartPickerModal, VisitHistory } from "../components/game";
 import { Icon } from "../components/Icon";
 import { Badge, Button, Card, ErrorBox, Segmented, Spinner, useUi } from "../components/ui";
@@ -388,6 +389,7 @@ export function GamePage() {
               <Button size="sm" variant="ghost" icon="refresh" onClick={() => api.post("/api/autodarts/reset-board").catch((e: Error) => toast(e.message, "critical"))}>
                 Réinitialiser la cible
               </Button>
+              <CalibrateButton />
             </div>
           )}
           {finished && !spectator && match.status === "finished" && (

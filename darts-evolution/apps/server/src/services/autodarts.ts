@@ -1,14 +1,16 @@
 import { EventEmitter } from "node:events";
 import {
   AutodartsScoringProvider,
+  BoardError,
   BoardManagerSimulator,
+  classifyError,
   validateHost,
   type AdapterLogger,
   type ConnectionTestResult,
 } from "@darts-evolution/autodarts-adapter";
 import { dartDisplay, type ConnectionStatus, type DetectedThrow, type ScoringEvent } from "@darts-evolution/shared";
 import { nowIso, parseJson, type Database } from "../db/database.js";
-import { badRequest } from "../errors.js";
+import { AppError, badRequest, conflict } from "../errors.js";
 import type { MatchService, MatchSnapshot } from "./matches.js";
 import type { SettingsService } from "./settings.js";
 
@@ -26,6 +28,8 @@ export interface AutodartsOverview {
   boundMatchId: string | null;
   simulation: boolean;
   compatibility: string;
+  /** Calibration automatique des caméras en cours (lancée depuis l'application). */
+  calibrating: boolean;
 }
 
 const JOURNAL_LIMIT = 5000;
@@ -46,6 +50,8 @@ const DISABLED_STATUS = (simulated = false): ConnectionStatus => ({
  */
 export class AutodartsService extends EventEmitter {
   private provider: AutodartsScoringProvider | null = null;
+  private calibrating = false;
+  private calibrationQuietUntil = 0;
   private simulator: BoardManagerSimulator | null = null;
   private unsubscribe: (() => void) | null = null;
   private lastJournaledState: string | null = null;
@@ -182,6 +188,49 @@ export class AutodartsService extends EventEmitter {
     await this.provider.resetBoard();
   }
 
+  /**
+   * Calibration automatique des caméras Autodarts (toutes, ou une seule). Pendant la calibration et
+   * quelques secondes après, les impacts et retraits signalés par la cible sont ignorés : la partie ne
+   * peut pas être faussée par une image de calibration.
+   */
+  async calibrate(camera?: number): Promise<{ message: string }> {
+    if (!this.provider) throw badRequest("Aucune connexion Autodarts active.");
+    if (this.calibrating) throw conflict("Une calibration est déjà en cours.", "calibration_running");
+    const label = camera === undefined ? "toutes les caméras" : `caméra ${camera + 1}`;
+    this.calibrating = true;
+    this.calibrationQuietUntil = Number.POSITIVE_INFINITY;
+    this.emit("status", this.overview());
+    try {
+      await this.provider.calibrate(camera);
+      this.journal("calibration", { cameras: label }, "terminée", this.boundMatchId);
+      return { message: `Calibration automatique terminée (${label}).` };
+    } catch (error) {
+      const status = error instanceof BoardError ? error.status : undefined;
+      const message =
+        status === 409
+          ? "Autodarts a refusé la calibration : une calibration est peut-être déjà en cours, ou la détection est occupée. Réessayez dans un instant."
+          : status === 404 || status === 405
+            ? "Cette version d'Autodarts ne propose pas la calibration par son API locale : lancez-la depuis l'interface Autodarts."
+            : `Calibration impossible : ${classifyError(error).message}`;
+      this.journal("calibration", { cameras: label }, `échec : ${message}`, this.boundMatchId);
+      throw new AppError(502, "calibration_failed", message);
+    } finally {
+      this.calibrating = false;
+      this.calibrationQuietUntil = Date.now() + 5000;
+      this.emit("status", this.overview());
+    }
+  }
+
+  /** Nombre de caméras déclarées par Autodarts (null si inconnu). */
+  async cameraCount(): Promise<number | null> {
+    return this.provider ? this.provider.cameraCount() : null;
+  }
+
+  /** Calibration en cours (ou terminée depuis moins de 5 s) : la cible n'est pas écoutée. */
+  private get calibrationQuiet(): boolean {
+    return this.calibrating || Date.now() < this.calibrationQuietUntil;
+  }
+
   async stop(): Promise<void> {
     await this.detach();
     if (this.simulator) await this.simulator.stop();
@@ -193,6 +242,7 @@ export class AutodartsService extends EventEmitter {
     return {
       status: this.provider?.statusSnapshot ?? DISABLED_STATUS(),
       enabled: s.enabled,
+      calibrating: this.calibrating,
       config: { host: s.host, port: s.port, protocol: s.protocol },
       boundMatchId: this.boundMatchId,
       simulation: this.simulationActive,
@@ -309,6 +359,10 @@ export class AutodartsService extends EventEmitter {
   }
 
   private onThrow(t: DetectedThrow): void {
+    if (this.calibrationQuiet) {
+      this.journal("impact", this.summary(t), "ignoré : calibration des caméras en cours", this.boundMatchId);
+      return;
+    }
     const target = this.target();
     if ("reason" in target) {
       this.journal("impact", this.summary(t), `ignoré : ${target.reason}`, target.matchId);
@@ -377,6 +431,10 @@ export class AutodartsService extends EventEmitter {
 
   /** Fin de visite détectée sur la cible (retrait des fléchettes ou reset manuel). */
   private onVisitBoundary(kind: "retrait" | "reset", dartsOnBoard: number, key: string): void {
+    if (this.calibrationQuiet) {
+      this.journal(kind, { dartsOnBoard }, "ignoré : calibration des caméras en cours", this.boundMatchId);
+      return;
+    }
     const target = this.target();
     if ("reason" in target) {
       this.journal(kind, { dartsOnBoard }, `ignoré : ${target.reason}`, target.matchId);

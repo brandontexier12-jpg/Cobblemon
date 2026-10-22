@@ -146,6 +146,12 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext): void
     await ctx.autodarts.resetBoard();
     return { ok: true };
   });
+  // Calibration automatique des caméras (toutes, ou une seule avec « camera »).
+  app.post("/api/autodarts/calibrate", async (req) => {
+    const { camera } = z.object({ camera: z.number().int().min(0).max(7).optional() }).parse(req.body ?? {});
+    return ctx.autodarts.calibrate(camera);
+  });
+  app.get("/api/autodarts/cameras", async () => ({ count: await ctx.autodarts.cameraCount() }));
   app.post("/api/autodarts/bind", async (req) => {
     const { matchId } = z.object({ matchId: z.string().uuid().nullable() }).parse(req.body);
     if (matchId) {

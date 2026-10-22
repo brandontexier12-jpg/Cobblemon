@@ -18,6 +18,12 @@ export interface SimulatorOptions {
   omitThrowData?: boolean;
   /** Répond 401 partout (version hypothétique exigeant une authentification). */
   requireAuth?: boolean;
+  /** Calibration automatique : acceptée (défaut), refusée (409) ou route absente (404). */
+  calibration?: "ok" | "refuse" | "absent";
+  /** Caméras déclarées dans la configuration. */
+  cameras?: number;
+  /** Durée simulée d'une calibration (ms). */
+  calibrationMs?: number;
 }
 
 interface SimThrow {
@@ -228,6 +234,21 @@ export class BoardManagerSimulator {
     this.broadcast();
   }
 
+  /** Calibration simulée : état « Calibrating » pendant la durée choisie, réponse à la fin. */
+  private calibrate(res: ServerResponse, camera: number | undefined): void {
+    if (this.options.calibration === "absent") return this.send(res, 404, { error: "not found" });
+    if (this.options.calibration === "refuse") return this.send(res, 409, { error: "busy" });
+    this.commands.push(camera === undefined ? "calibrate" : `calibrate:${camera}`);
+    const previous = { event: this.state.event, status: this.state.status };
+    this.state = { ...this.state, event: "Calibration started", status: "Calibrating" };
+    this.broadcast();
+    setTimeout(() => {
+      this.state = { ...this.state, event: "Calibration finished", status: previous.status };
+      this.broadcast();
+      this.send(res, 200, {});
+    }, this.options.calibrationMs ?? 400);
+  }
+
   private send(res: ServerResponse, status: number, body: unknown, type = "application/json"): void {
     const text = type === "application/json" ? JSON.stringify(body) : String(body);
     res.writeHead(status, { "content-type": type, "cache-control": "no-store" });
@@ -246,7 +267,7 @@ export class BoardManagerSimulator {
         res.writeHead(200);
         return void res.end();
       case "GET /api/config":
-        return this.send(res, 200, { auth: { board_id: "simulateur-darts-evolution" }, cam: { cams: [] } });
+        return this.send(res, 200, { auth: { board_id: "simulateur-darts-evolution" }, cam: { cams: Array.from({ length: this.options.cameras ?? 0 }, (_, i) => ({ id: i })) } });
       case "POST /api/reset":
         this.commands.push("reset");
         this.manualReset();
@@ -262,6 +283,8 @@ export class BoardManagerSimulator {
       case "GET /":
         return this.send(res, 200, CONTROL_PAGE, "text/html; charset=utf-8");
     }
+    const calibration = req.method === "POST" ? /^\/api\/config\/calibration\/auto(?:\/(\d)\?distortion=true)?$/.exec(req.url ?? "") : null;
+    if (calibration) return this.calibrate(res, calibration[1] === undefined ? undefined : Number(calibration[1]));
     if (req.method === "POST" && req.url?.startsWith("/control/")) {
       this.commands.push(req.url);
       const [, , action, arg] = req.url.split("/");

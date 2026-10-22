@@ -95,6 +95,28 @@ export class BoardManagerClient {
     await this.request(route[0] as string, route[1] as string, 10_000);
   }
 
+  /**
+   * Calibration automatique des caméras : toutes, ou une seule avec correction de la distorsion.
+   * Routes `POST /api/config/calibration/auto[/<caméra>?distortion=true]`, celles qu'utilisent les
+   * intégrations ioBroker et Home Assistant d'Autodarts. La réponse arrive à la fin (jusqu'à une minute).
+   */
+  async calibrate(camera?: number): Promise<void> {
+    if (camera !== undefined && (!Number.isInteger(camera) || camera < 0 || camera > 7)) throw new BoardError("incompatible", "Caméra invalide");
+    const path = camera === undefined ? "/api/config/calibration/auto" : `/api/config/calibration/auto/${camera}?distortion=true`;
+    await this.request("POST", path, 60_000);
+  }
+
+  /** Nombre de caméras de la configuration (`cam.cams`), ou null si elle est illisible. */
+  async cameraCount(): Promise<number | null> {
+    try {
+      const res = await this.request("GET", "/api/config");
+      const cams = (JSON.parse(res.body) as { cam?: { cams?: unknown } } | null)?.cam?.cams;
+      return Array.isArray(cams) ? Math.min(cams.length, 8) : null;
+    } catch {
+      return null;
+    }
+  }
+
   openEvents(): WebSocket {
     return new WebSocket(eventsUrl(this.endpoint), { handshakeTimeout: DEFAULT_TIMEOUT, maxPayload: 1024 * 1024 });
   }

@@ -177,6 +177,15 @@ export class AutodartsScoringProvider implements ScoringProvider {
     await this.client.command("reset");
   }
 
+  /** Calibration automatique des caméras (commande explicite, jamais rejouée). */
+  async calibrate(camera?: number): Promise<void> {
+    await this.client.calibrate(camera);
+  }
+
+  async cameraCount(): Promise<number | null> {
+    return this.client.cameraCount();
+  }
+
   private clearTimers(): void {
     for (const t of [this.pingTimer, this.pongTimer, this.reconcileTimer]) if (t) clearTimeout(t);
     this.pingTimer = null;
