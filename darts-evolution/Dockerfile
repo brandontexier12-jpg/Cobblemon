@@ -1,5 +1,5 @@
-# syntax=docker/dockerfile:1
 # DARTS EVOLUTION — image Docker reproductible (dépendances figées par package-lock.json).
+# Compatible avec le moteur de construction classique comme avec BuildKit (aucune syntaxe spécifique).
 # Aucune dépendance native : la même image fonctionne sur NAS x86-64 et ARM64 (build multi-architecture possible).
 
 ARG NODE_IMAGE=node:22.22.0-alpine3.23
@@ -14,11 +14,7 @@ COPY packages/statistics/package.json packages/statistics/
 COPY packages/autodarts-adapter/package.json packages/autodarts-adapter/
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
-# Certificat d'autorité facultatif (proxy d'entreprise interceptant le TLS) : fourni par un secret BuildKit,
-# jamais copié dans l'image. Exemple : docker build --secret id=extra_ca,src=./ca.crt .
-RUN --mount=type=secret,id=extra_ca \
-    if [ -f /run/secrets/extra_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/extra_ca; fi; \
-    npm ci --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 COPY . .
 # Les tests s'exécutent pendant la construction : une image n'est produite que si tout passe.
 # Pour une construction plus rapide sur un petit NAS : --build-arg RUN_TESTS=false

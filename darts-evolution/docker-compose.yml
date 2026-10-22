@@ -10,6 +10,9 @@ services:
       dockerfile: Dockerfile
       args:
         RUN_TESTS: "${RUN_TESTS:-true}"
+    # Image construite sur place à partir des sources : ne jamais la chercher sur Docker Hub
+    # (sinon Container Manager échoue avec « pull access denied for darts-evolution »).
+    pull_policy: build
     container_name: darts-evolution
     restart: unless-stopped
     # Petit processus init (relais des signaux) fourni par Docker.

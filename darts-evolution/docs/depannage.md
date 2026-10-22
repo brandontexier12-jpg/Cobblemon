@@ -19,6 +19,7 @@ Plus de détails dans les journaux : `LOG_LEVEL=debug` dans `.env`, puis `docker
 
 | Symptôme | Cause probable | Solution |
 |---|---|---|
+| « pull access denied for darts-evolution » au déploiement | Container Manager cherche l'image sur Docker Hub au lieu de la construire | Utiliser le `docker-compose.yml` à jour (`pull_policy: build`) et vérifier que le dossier du projet contient **toutes** les sources (`Dockerfile`, `apps/`, `packages/`…) ; sinon importer l'image (méthode 2 du guide d'installation) |
 | La page ne s'ouvre pas | Port différent, conteneur arrêté | `docker ps` ; vérifier `APP_PORT` ; ouvrir `http://IP_DU_NAS:APP_PORT` |
 | Conteneur « unhealthy » | Base inaccessible, droits | Journaux ; vérifier `PUID`/`PGID` et les droits de `data/` |
 | `EACCES` / permission refusée dans les journaux | Dossiers créés par un autre utilisateur | Ajuster `PUID`/`PGID` (le conteneur corrige les droits au démarrage) |

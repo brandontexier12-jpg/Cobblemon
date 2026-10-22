@@ -83,6 +83,10 @@ docker compose up -d --build
 La politique `restart: unless-stopped` relance automatiquement le conteneur après un incident ou un
 redémarrage du NAS.
 
+La première construction prend plusieurs minutes (installation des dépendances, tests, construction de
+l'interface). Le réglage `pull_policy: build` indique à Container Manager de construire l'image sur place :
+sans lui, il tente de la télécharger sur Docker Hub et échoue (« pull access denied for darts-evolution »).
+
 ## 6. Vérifier les journaux
 
 Docker Manager → Conteneurs → `darts-evolution` → **Journaux**. Lignes attendues :
