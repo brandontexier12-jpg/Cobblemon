@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
+    "dev": "tsx watch --disable-warning=ExperimentalWarning src/main.ts",
     "build": "node build.mjs",
-    "start": "node dist/server.mjs"
+    "start": "node --disable-warning=ExperimentalWarning dist/server.mjs"
   },
   "dependencies": {
     "@darts-evolution/autodarts-adapter": "1.0.0",

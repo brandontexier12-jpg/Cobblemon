@@ -20,7 +20,7 @@
     "dev:server": "npm run dev -w @darts-evolution/server",
     "dev:web": "npm run dev -w @darts-evolution/web",
     "build": "npm run build -w @darts-evolution/web && npm run build -w @darts-evolution/server",
-    "start": "node apps/server/dist/server.mjs",
+    "start": "node --disable-warning=ExperimentalWarning apps/server/dist/server.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p packages/shared && tsc -p packages/game-engine && tsc -p packages/statistics && tsc -p packages/autodarts-adapter && tsc -p apps/server && tsc -p apps/web",

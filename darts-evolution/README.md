@@ -190,6 +190,9 @@ npm start              # sert l'interface construite et l'API
 npm run simulator      # simulateur de Board Manager (SIMULATION)
 ```
 
+Vérification de l'interface dans un navigateur (facultatif, nécessite Playwright, serveur démarré sur une
+base vide) : `BASE=http://localhost:8080 TOUR=1 node tests/e2e/ui-smoke.cjs`.
+
 Résultats vérifiés lors de la livraison :
 - `npm test` : **9 fichiers, 108 tests réussis** (dont un flux Autodarts de bout en bout contre le
   simulateur, la reconnexion, les doublons, la persistance après redémarrage, les sauvegardes, la

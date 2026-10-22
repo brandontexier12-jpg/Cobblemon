@@ -81,26 +81,37 @@ export function GamePage() {
     }
   });
 
+  // Les commandes de cet appareil sont envoyées l'une après l'autre, chacune basée sur la dernière
+  // version reçue : une saisie rapide n'est jamais bloquée, et une action concurrente d'un autre
+  // appareil reste détectée (conflit de version).
+  const queueRef = useRef<Promise<void>>(Promise.resolve());
+  const pendingRef = useRef(0);
   const command = useCallback(
-    async (body: Record<string, unknown>) => {
-      if (!snapshot || role === "spectator") return;
+    (body: Record<string, unknown>) => {
+      if (role === "spectator") return Promise.resolve();
+      pendingRef.current++;
       setBusy(true);
-      try {
-        const result = await api.post<CommandResult>(`/api/matches/${id}/commands`, { ...body, commandId: newId(), baseVersion: snapshot.match.version });
-        accept(result.snapshot);
-        if (result.notice) toast(result.notice, "info");
-      } catch (e) {
-        if (e instanceof ApiError && e.code === "version_conflict") {
-          toast(e.message, "warning");
-          await load();
-        } else {
-          toast((e as Error).message, "critical");
+      const run = async () => {
+        try {
+          const result = await api.post<CommandResult>(`/api/matches/${id}/commands`, { ...body, commandId: newId(), baseVersion: versionRef.current });
+          accept(result.snapshot);
+          if (result.notice) toast(result.notice, "info");
+        } catch (e) {
+          if (e instanceof ApiError && e.code === "version_conflict") {
+            toast(e.message, "warning");
+            await load();
+          } else {
+            toast((e as Error).message, "critical");
+          }
+        } finally {
+          pendingRef.current--;
+          if (pendingRef.current === 0) setBusy(false);
         }
-      } finally {
-        setBusy(false);
-      }
+      };
+      queueRef.current = queueRef.current.then(run);
+      return queueRef.current;
     },
-    [snapshot, role, id, accept, load, toast],
+    [role, id, accept, load, toast],
   );
 
   if (error) return <ErrorBox message={error} onRetry={load} />;
@@ -302,12 +313,12 @@ export function GamePage() {
                   <details className="text-sm text-ink-300">
                     <summary className="cursor-pointer">Saisir une fléchette manquée par la détection</summary>
                     <div className="mt-2">
-                      <DartPad compact onDart={onDart} disabled={busy} />
+                      <DartPad compact onDart={onDart} />
                     </div>
                   </details>
                 </div>
               ) : (
-                <DartPad onDart={onDart} disabled={busy} />
+                <DartPad onDart={onDart} />
               )}
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button icon="undo" onClick={() => command({ kind: "undo" })} disabled={busy}>

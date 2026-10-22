@@ -11,3 +11,6 @@ backups/*
 !backups/.gitkeep
 tests/e2e/screenshots/
 .vite/
+# Données créées par « npm run dev:server » (lancé depuis apps/server)
+apps/server/data/
+apps/server/backups/
