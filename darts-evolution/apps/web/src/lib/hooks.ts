@@ -93,3 +93,31 @@ export function useLocalPreference<T>(key: string, initial: T): [T, (value: T) =
   );
   return [value, update];
 }
+
+/**
+ * Version du serveur : détecte une mise à jour installée pendant que la page est ouverte
+ * (vérifiée à chaque reconnexion temps réel). Renvoie la nouvelle version, sinon null.
+ */
+export function useServerUpdated(): string | null {
+  const [updated, setUpdated] = useState<string | null>(null);
+  useEffect(() => {
+    let initial: string | null = null;
+    const check = () => {
+      fetch("/api/health", { credentials: "same-origin" })
+        .then((r) => r.json() as Promise<{ version?: string }>)
+        .then((h) => {
+          if (!h.version) return;
+          if (initial === null) initial = h.version;
+          else if (h.version !== initial) setUpdated(h.version);
+        })
+        .catch(() => {});
+    };
+    check();
+    const socket = getSocket();
+    socket.on("connect", check);
+    return () => {
+      socket.off("connect", check);
+    };
+  }, []);
+  return updated;
+}

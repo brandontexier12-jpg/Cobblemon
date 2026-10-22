@@ -12,6 +12,7 @@ import type { PlayerService } from "./services/players.js";
 import type { SettingsService } from "./services/settings.js";
 import type { StatsService } from "./services/stats.js";
 import type { TrainingService } from "./services/training.js";
+import type { UpdateService } from "./services/updates.js";
 
 export interface AppContext {
   config: AppConfig;
@@ -26,6 +27,7 @@ export interface AppContext {
   autodarts: AutodartsService;
   training: TrainingService;
   exports: ExportService;
+  updates: UpdateService;
   startedAt: number;
   /** Prochaine sauvegarde automatique (vérification périodique). */
   runScheduledBackup(): void;

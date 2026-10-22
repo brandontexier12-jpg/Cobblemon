@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Badge, Button, Card, Field, inputClass, PageHeader, Segmented, Stepper, useUi } from "../components/ui";
+import { UpdateCard } from "../components/UpdateCard";
 import { api } from "../lib/api";
 import { useAppState } from "../lib/app-state";
 import { fmtDateTime } from "../lib/format";
@@ -20,7 +21,13 @@ interface BackupFile {
   reason: string;
 }
 
-const REASON_LABEL: Record<string, string> = { auto: "Automatique", manuelle: "Manuelle", "pre-migration": "Avant mise à jour", "pre-restauration": "Avant restauration" };
+const REASON_LABEL: Record<string, string> = {
+  auto: "Automatique",
+  manuelle: "Manuelle",
+  "pre-migration": "Avant migration",
+  "pre-restauration": "Avant restauration",
+  "pre-mise-a-jour": "Avant mise à jour",
+};
 
 export function SettingsPage() {
   const { auth, refreshAuth, players, activePlayerId, setActivePlayer } = useAppState();
@@ -231,6 +238,8 @@ export function SettingsPage() {
           </div>
         )}
       </Card>
+
+      <UpdateCard isAdmin={auth.isAdmin} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Exports">

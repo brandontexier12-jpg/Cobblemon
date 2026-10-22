@@ -41,10 +41,10 @@ tests automatiques compris). Sur un NAS peu puissant, mettez `RUN_TESTS=false` d
 
 ```bash
 # Sur un ordinateur avec Docker, dans le dossier darts-evolution :
-docker build -t darts-evolution:1.1.0 .
-docker save darts-evolution:1.1.0 | gzip > darts-evolution-1.1.0.tar.gz
+docker build -t darts-evolution:1.2.0 .
+docker save darts-evolution:1.2.0 | gzip > darts-evolution-1.2.0.tar.gz
 # NAS ARM64 (ex. processeurs Realtek/ARM) depuis un PC x86 :
-docker buildx build --platform linux/arm64 -t darts-evolution:1.1.0 --output type=docker,dest=darts-evolution-arm64.tar .
+docker buildx build --platform linux/arm64 -t darts-evolution:1.2.0 --output type=docker,dest=darts-evolution-arm64.tar .
 ```
 
 Dans Docker Manager → **Images** → **Ajouter / Importer** le fichier `.tar(.gz)`. Copiez ensuite
@@ -93,7 +93,7 @@ Docker Manager → Conteneurs → `darts-evolution` → **Journaux**. Lignes att
 
 ```
 Migrations appliquées.
-DARTS EVOLUTION 1.1.0 prêt sur http://127.0.0.1:8080 (port 8080).
+DARTS EVOLUTION 1.2.0 prêt sur http://127.0.0.1:8080 (port 8080).
 ```
 
 L'état du conteneur doit passer à **sain (healthy)** en moins d'une minute (contrôle de santé intégré).
@@ -127,7 +127,26 @@ dans `/Volume1/docker/darts-evolution/backups/` : incluez ce dossier dans une t�
 
 ---
 
-## Mise à jour sans perte de données
+## Mise à jour depuis l'application (à partir de la 1.2.0)
+
+1. Vérifiez qu'un mot de passe administrateur est défini (`ADMIN_PASSWORD` dans `.env`) et connectez-vous
+   dans **Paramètres → Administration**.
+2. **Paramètres → Mise à jour de l'application → Installer une mise à jour (.zip)** : choisissez le fichier
+   `darts-evolution-X.Y.Z.zip` reçu, **sans le décompresser**, puis confirmez.
+3. L'application vérifie le fichier, crée une sauvegarde « Avant mise à jour », installe et redémarre
+   (une dizaine de secondes) ; la page se recharge sur la nouvelle version.
+4. Si la nouvelle version ne démarre pas, l'ancienne est rétablie automatiquement et le motif s'affiche
+   dans la même carte. Le bouton « Revenir à la version … » permet aussi un retour manuel.
+
+Les versions installées ainsi sont rangées dans `data/releases/` (dans le volume de données) : elles
+survivent aux redémarrages du conteneur. Une image reconstruite plus récente (mise à jour manuelle) reprend
+automatiquement la main. Si un paquet demande un conteneur plus récent, il est refusé : suivez alors la
+procédure manuelle ci-dessous.
+
+## Mise à jour manuelle (reconstruction de l'image)
+
+Nécessaire une fois pour passer à la 1.2.0 (le conteneur doit contenir le nouveau lanceur), puis seulement
+si un paquet l'exige. Le fichier .zip est le même :
 
 1. Paramètres → **Sauvegarder maintenant** (par précaution).
 2. Remplacer les fichiers du projet par la nouvelle version (sans toucher à `data/`, `backups/`, `.env`),

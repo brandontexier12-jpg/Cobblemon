@@ -8,6 +8,8 @@ darts-evolution/
 │   │   ├── src/services/  joueurs, parties, statistiques, compétitions, entraînements,
 │   │   │                  sauvegardes, exports, réglages, authentification, pont Autodarts
 │   │   ├── src/http/      routes REST, temps réel (salles), messages de validation en français
+│   │   ├── src/update/    mise à jour depuis l'application : lecture ZIP, versions installées,
+│   │   │                  lanceur superviseur (redémarrage, retour en arrière), fabrication du paquet
 │   │   └── test/          tests d'intégration (API, persistance, sauvegardes, Autodarts, Socket.IO)
 │   └── web/               React + Vite + Tailwind CSS (interface en français)
 ├── packages/
@@ -15,7 +17,7 @@ darts-evolution/
 │   ├── game-engine/       moteur de jeu pur : modes, règles, checkout, vues (aucune E/S)
 │   ├── statistics/        formules statistiques, séries, records, badges, objectifs
 │   └── autodarts-adapter/ client de l'API locale Autodarts, suivi d'instantanés, simulateur, capture
-├── docker/                lanceur du conteneur, contrôle de santé, compose « image seule »
+├── docker/                contrôle de santé, compose « image seule »
 ├── docs/                  documentation (français)
 ├── Dockerfile, docker-compose.yml, .env.example, .dockerignore
 └── data/, backups/        (exécution : jamais versionnés)
@@ -72,6 +74,12 @@ Autodarts et les sauvegardes **automatiques** au-delà de la rétention sont él
 - Journaux sans cookie ni en-tête d'autorisation ; aucune réponse brute d'Autodarts n'est journalisée.
 - Exports CSV protégés contre l'injection de formules ; noms de sauvegardes validés (pas de traversée
   de dossier).
+- Mise à jour depuis l'application : uniquement si `ADMIN_PASSWORD` est défini et la session
+  administrateur ouverte ; archive lue avec des plafonds de taille (anti « bombe de décompression »), CRC
+  vérifié, chemins contrôlés (pas de traversée de dossier), empreinte SHA-256 de chaque fichier comparée au
+  manifeste, refus des versions plus anciennes ou incompatibles. Pas de signature : l'authenticité du paquet
+  repose sur le mot de passe administrateur. Les versions sont installées dans le volume de données ; le
+  conteneur ne reçoit aucun droit supplémentaire (ni socket Docker, ni reconstruction d'image).
 - Conteneur : processus non root (PUID/PGID), `no-new-privileges`, pas de mode privilégié, pas de
   socket Docker, ni d'accès USB. Ne pas exposer l'application ni Autodarts sur Internet : usage réseau
   local (pour un accès distant, passer par un VPN).

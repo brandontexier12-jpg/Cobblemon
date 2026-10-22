@@ -14,3 +14,8 @@ tests/e2e/screenshots/
 # Données créées par « npm run dev:server » (lancé depuis apps/server)
 apps/server/data/
 apps/server/backups/
+
+# Paquets de mise à jour produits par « npm run package »
+dist-release/
+# Dossier release/ présent dans un paquet décompressé (mise à jour manuelle)
+/release/

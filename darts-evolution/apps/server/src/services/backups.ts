@@ -4,7 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { Database } from "../db/database.js";
 import { badRequest, notFound } from "../errors.js";
 
-export type BackupReason = "auto" | "manuelle" | "pre-migration" | "pre-restauration";
+export type BackupReason = "auto" | "manuelle" | "pre-migration" | "pre-restauration" | "pre-mise-a-jour";
 
 export interface BackupFile {
   name: string;
@@ -13,7 +13,7 @@ export interface BackupFile {
   reason: BackupReason | "inconnue";
 }
 
-const NAME = /^darts-evolution-(\d{8}-\d{6})-(auto|manuelle|pre-migration|pre-restauration)(?:-\d+)?\.db$/;
+const NAME = /^darts-evolution-(\d{8}-\d{6})-(auto|manuelle|pre-migration|pre-restauration|pre-mise-a-jour)(?:-\d+)?\.db$/;
 
 function stamp(date = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
@@ -23,7 +23,7 @@ function stamp(date = new Date()): string {
 /**
  * Sauvegardes de la base SQLite (copie cohérente par VACUUM INTO).
  * Seules les sauvegardes automatiques sont élaguées selon la rétention ; les sauvegardes manuelles,
- * pré-migration et pré-restauration ne sont jamais supprimées automatiquement.
+ * pré-migration, pré-restauration et pré-mise à jour ne sont jamais supprimées automatiquement.
  */
 export class BackupService {
   constructor(

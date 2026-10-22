@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAppState } from "../lib/app-state";
-import { useServerConnection } from "../lib/hooks";
+import { useServerConnection, useServerUpdated } from "../lib/hooks";
 import { AutodartsPill } from "./AutodartsStatus";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
@@ -24,6 +24,7 @@ const MOBILE = ["/", "/jouer", "/entrainement", "/statistiques", "/plus"];
 export function Layout() {
   const { activePlayer, autodarts } = useAppState();
   const online = useServerConnection();
+  const updatedTo = useServerUpdated();
   const location = useLocation();
   return (
     <div className="min-h-screen lg:flex">
@@ -67,6 +68,14 @@ export function Layout() {
         {!online && (
           <div className="flex items-center gap-2 bg-critical/20 px-4 py-2 text-sm text-[#ffb4b4]" role="alert">
             <Icon name="warning" size={16} /> Connexion temps réel au serveur perdue — reconnexion automatique en cours.
+          </div>
+        )}
+        {updatedTo && (
+          <div className="flex flex-wrap items-center gap-2 bg-brand-500/15 px-4 py-2 text-sm text-brand-300" role="status">
+            <Icon name="info" size={16} /> DARTS EVOLUTION a été mis à jour (version {updatedTo}).
+            <button className="font-semibold underline underline-offset-2" onClick={() => window.location.reload()}>
+              Recharger la page
+            </button>
           </div>
         )}
         <main key={location.pathname} className="animate-pop mx-auto w-full max-w-7xl px-4 pb-28 pt-5 sm:px-6 lg:pb-10">

@@ -10,3 +10,5 @@ tests/e2e/screenshots
 **/*.log
 .git
 .vite
+dist-release
+release

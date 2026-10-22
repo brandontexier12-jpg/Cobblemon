@@ -25,6 +25,8 @@ import { PlayerService } from "./services/players.js";
 import { SettingsService } from "./services/settings.js";
 import { StatsService } from "./services/stats.js";
 import { TrainingService } from "./services/training.js";
+import { UpdateService } from "./services/updates.js";
+import { registerUpdateRoutes } from "./http/routes-update.js";
 
 export interface BuiltApp {
   app: FastifyInstance;
@@ -47,7 +49,13 @@ const CSP = [
   "form-action 'self'",
 ].join("; ");
 
-export async function buildApp(config: AppConfig, options: { logger?: boolean } = {}): Promise<BuiltApp> {
+export interface BuildOptions {
+  logger?: boolean;
+  /** Redémarrage demandé (mise à jour installée) : le lanceur relance le serveur. */
+  onRestartRequested?: () => void;
+}
+
+export async function buildApp(config: AppConfig, options: BuildOptions = {}): Promise<BuiltApp> {
   installFrenchErrors();
   const app = Fastify({
     logger:
@@ -91,6 +99,10 @@ export async function buildApp(config: AppConfig, options: { logger?: boolean } 
   const training = new TrainingService(db, players, stats);
   const exportsService = new ExportService(db, config.version);
   const auth = new AuthService(config.adminPassword, config.sessionHours);
+  const updates = new UpdateService(config, backups, () => auth.enabled, () => {
+    app.log.info("Redémarrage pour terminer la mise à jour…");
+    options.onRestartRequested?.();
+  });
 
   matches.hooks = {
     onFinished: (snapshot, state) => competitions.onMatchFinished(snapshot, (state.m as { totalLegsWon?: number[] }).totalLegsWon),
@@ -110,6 +122,7 @@ export async function buildApp(config: AppConfig, options: { logger?: boolean } 
     autodarts,
     training,
     exports: exportsService,
+    updates,
     startedAt: Date.now(),
     runScheduledBackup() {
       const { intervalHours, retention } = settings.backup();
@@ -165,6 +178,7 @@ export async function buildApp(config: AppConfig, options: { logger?: boolean } 
   registerAdminRoutes(app, ctx);
   registerGameRoutes(app, ctx);
   registerDataRoutes(app, ctx);
+  registerUpdateRoutes(app, ctx);
 
   // ---------- Interface web (fichiers construits par Vite) ----------
   const webDist = config.webDistPath ?? path.resolve(process.cwd(), "apps/web/dist");

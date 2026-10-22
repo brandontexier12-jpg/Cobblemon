@@ -123,7 +123,7 @@ machine) seulement après vérification de la compatibilité matérielle : voir 
 | [`Dockerfile`](Dockerfile) | Image multi-étapes : `npm ci` (lockfile), **tests**, build ; image finale `node:22.22.0-alpine3.23` avec le serveur assemblé et l'interface |
 | [`docker-compose.yml`](docker-compose.yml) | Service unique : port `${APP_PORT}:8080`, volumes `./data` et `./backups`, `restart: unless-stopped`, `init`, limite mémoire 512 Mo / 1 CPU, `no-new-privileges`, rotation des journaux |
 | [`docker/docker-compose.image-only.yml`](docker/docker-compose.image-only.yml) | Même chose sans construction (image importée) |
-| [`docker/launcher.mjs`](docker/launcher.mjs) | Prépare `data`/`backups`, applique PUID/PGID, abandonne root, démarre le serveur |
+| [`apps/server/src/launcher.ts`](apps/server/src/launcher.ts) → `/app/launcher.mjs` | Prépare `data`/`backups`, applique PUID/PGID, abandonne root, supervise le serveur (redémarrage après mise à jour, retour automatique en arrière) |
 | [`docker/healthcheck.mjs`](docker/healthcheck.mjs) | Contrôle de santé (`/api/health` : API + base) |
 | [`.env.example`](.env.example) | Toutes les variables, commentées |
 
@@ -173,9 +173,26 @@ Sans matériel : **Démarrer le mode test** (page Intégration) ou `npm run simu
   d'intégrité ; refus d'une sauvegarde d'une version plus récente.
 - **Exports** : JSON complet (administrateur), CSV joueurs / parties / visites / résultats.
 
-**Mise à jour** : sauvegarder → remplacer les fichiers du projet (sans toucher `data/`, `backups/`,
-`.env`) → `docker compose up -d --build` (ou « Reconstruire » dans Docker Manager). Vérifié : une partie
-en cours et les joueurs survivent au redémarrage et au remplacement de l'image.
+**Mise à jour depuis l'application** (à partir de la 1.2.0) : **Paramètres → Mise à jour de l'application
+→ Installer une mise à jour (.zip)** avec le fichier `darts-evolution-X.Y.Z.zip`, sans le décompresser.
+- Réservé à l'administrateur ; **`ADMIN_PASSWORD` doit être défini** (installer une version revient à exécuter
+  du code sur le NAS).
+- Vérifications avant toute modification : archive ZIP saine (tailles plafonnées, CRC, chemins), manifeste,
+  **empreinte SHA-256 de chaque fichier**, version plus récente que l'actuelle, version de Node.js du
+  conteneur suffisante. Un fichier modifié ou incomplet est refusé et rien n'est installé.
+- Sauvegarde « Avant mise à jour » de la base, installation dans `data/releases/<version>/`, puis
+  redémarrage (une dizaine de secondes). Les parties en cours sont conservées.
+- **Retour automatique** à la version précédente si la nouvelle ne démarre pas (plantage ou absence de
+  signal « prêt » en 3 minutes), ou après 3 arrêts anormaux consécutifs ; bouton **« Revenir à la version
+  précédente »** sinon. Une image reconstruite plus récente l'emporte toujours sur une version installée.
+- Ne met à jour que l'application, pas l'image (Node.js, système) : un paquet qui exige un conteneur plus
+  récent est refusé avec un message ; utiliser alors la procédure manuelle.
+- Le paquet n'est pas signé : son authenticité repose sur le mot de passe administrateur.
+
+Le même fichier sert à la **mise à jour manuelle** : sauvegarder → décompresser et remplacer les fichiers du
+projet (sans toucher `data/`, `backups/`, `.env`) → `docker compose up -d --build` (ou « Reconstruire » dans
+Docker Manager). Vérifié : une partie en cours et les joueurs survivent au redémarrage et au remplacement de
+l'image. Fabriquer le paquet : `npm run package` → `dist-release/darts-evolution-<version>.zip`.
 
 ## Diagnostic
 
@@ -196,18 +213,19 @@ Prérequis : Node.js ≥ 22.13 (module `node:sqlite`).
 npm install
 npm run dev:server     # API + Socket.IO sur :8080 (rechargement automatique)
 npm run dev:web        # interface sur :5173 (proxy vers :8080)
-npm test               # 121 tests (moteur, statistiques, adaptateur Autodarts, serveur, interface)
+npm test               # 136 tests (moteur, statistiques, adaptateur Autodarts, serveur, mise à jour, interface)
 npm run typecheck      # vérification TypeScript de tous les paquets
 npm run build          # interface (Vite) + serveur assemblé (esbuild)
 npm start              # sert l'interface construite et l'API
 npm run simulator      # simulateur de Board Manager (SIMULATION)
+npm run package        # paquet de mise à jour dist-release/darts-evolution-<version>.zip
 ```
 
 Vérification de l'interface dans un navigateur (facultatif, nécessite Playwright, serveur démarré sur une
 base vide) : `BASE=http://localhost:8080 TOUR=1 node tests/e2e/ui-smoke.cjs`.
 
 Résultats vérifiés lors de la livraison :
-- `npm test` : **11 fichiers, 121 tests réussis** (dont un flux Autodarts de bout en bout contre le
+- `npm test` : **13 fichiers, 136 tests réussis** (dont un flux Autodarts de bout en bout contre le
   simulateur, la reconnexion, les doublons, la persistance après redémarrage, les sauvegardes, la
   sécurité et le multijoueur Socket.IO) ;
 - `npm run typecheck` : sans erreur ;
@@ -218,6 +236,10 @@ Résultats vérifiés lors de la livraison :
 - interface : parcours complet automatisé dans Chromium (création de joueurs, partie 301 saisie en touchant
   la cible puis au pavé, checkout, victoire avec annonces vocales, statistiques, mode test Autodarts en
   direct) et visite de toutes les pages sur ordinateur et téléphone, sans erreur ni défilement horizontal ;
+- mise à jour depuis l'application, dans un vrai conteneur : 1.2.0 → 1.2.1 par le bouton (sauvegarde,
+  redémarrage, page rechargée), version conservée après redémarrage du conteneur, paquet défectueux
+  (serveur qui plante) → retour automatique à la version précédente, puis retour manuel à 1.2.0 ;
+  processus non root, arrêt propre en moins d'une seconde ;
 - matériel réel : détection Autodarts vérifiée par l'utilisateur (impacts « AD » T20, S7, S10, S5, total de
   visite correct, attente du retrait avant le joueur suivant).
 

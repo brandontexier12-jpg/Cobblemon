@@ -31,13 +31,18 @@ Plus de détails dans les journaux : `LOG_LEVEL=debug` dans `.env`, puis `docker
 | Écran figé sur un appareil | Connexion temps réel perdue | Le bandeau rouge l'indique ; la reconnexion est automatique, sinon recharger la page |
 | « La partie a été modifiée depuis un autre appareil » | Deux appareils ont validé en même temps | L'affichage est actualisé ; recommencer l'action si nécessaire |
 | Mot de passe administrateur oublié | — | Modifier `ADMIN_PASSWORD` dans `.env`, puis `docker compose up -d` |
+| Mise à jour : « Définissez d'abord un mot de passe administrateur » | `ADMIN_PASSWORD` vide | Le définir dans `.env`, puis redémarrer le projet |
+| Mise à jour : « n'est disponible que dans le conteneur Docker » | Conteneur antérieur à 1.2.0, ou lancement hors Docker | Faire une mise à jour manuelle vers 1.2.0 |
+| Mise à jour : « Empreinte incorrecte » / « pas un paquet de mise à jour » | Fichier modifié, décompressé puis recompressé, ou téléchargement incomplet | Renvoyer le fichier .zip d'origine, tel quel |
+| Mise à jour : « retour automatique à la version … » | La nouvelle version n'a pas démarré | Journaux du conteneur (`docker compose logs`) ; l'ancienne version fonctionne, rien n'est perdu |
+| Version installée par l'application à abandonner | — | Paramètres → « Revenir à la version … », ou supprimer `data/releases/` puis redémarrer |
 
 ## Santé de l'API
 
 `GET /api/health` renvoie par exemple :
 
 ```json
-{"status":"ok","version":"1.1.0","uptimeSeconds":3600,"database":"ok","schemaVersion":2,"autodarts":"connected"}
+{"status":"ok","version":"1.2.0","uptimeSeconds":3600,"database":"ok","schemaVersion":2,"autodarts":"connected"}
 ```
 
 `status` vaut `degraded` (code HTTP 503) si la base SQLite ne répond plus.

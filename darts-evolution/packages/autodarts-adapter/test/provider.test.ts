@@ -78,13 +78,14 @@ describe("AutodartsScoringProvider (contre le simulateur)", () => {
     sim.throwDart("T20");
     await vi.waitFor(() => expect(throws).toHaveLength(1));
     sim.dropConnections();
-    await vi.waitFor(async () => expect((await provider.getStatus()).state).not.toBe("connected"));
-    // Une fléchette est lancée pendant la coupure (personne n'écoute).
+    // Une fléchette est lancée pendant la coupure (aucun client connecté à cet instant).
     sim.throwDart("T19");
+    // La reconnexion est rapide (50 ms) : on attend l'événement d'état plutôt que d'interroger l'état
+    // courant, qui peut redevenir « connecté » entre deux vérifications.
+    await vi.waitFor(() => expect(events.some((e) => e.kind === "status" && e.status.state === "reconnecting")).toBe(true));
     await connected(provider);
     await vi.waitFor(() => expect(throws).toHaveLength(2));
     expect(throws.map((t) => t.score)).toEqual([60, 57]);
-    expect(events.some((e) => e.kind === "status" && e.status.state === "reconnecting")).toBe(true);
     sim.throwDart("S1");
     await vi.waitFor(() => expect(throws).toHaveLength(3));
   });

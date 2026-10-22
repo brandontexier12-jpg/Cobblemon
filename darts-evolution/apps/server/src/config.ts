@@ -1,5 +1,7 @@
 import path from "node:path";
 import { z } from "zod";
+import { releasesPath } from "./update/releases.js";
+import { BUNDLED_VERSION } from "./version.js";
 
 const bool = z
   .string()
@@ -36,6 +38,15 @@ export interface AppConfig {
   webDistPath: string | null;
   sessionHours: number;
   version: string;
+  /** Mise à jour depuis l'application (versions installées dans le volume de données). */
+  update: {
+    /** Le serveur tourne sous le lanceur superviseur du conteneur (redémarrage possible). */
+    supervised: boolean;
+    supervisorProtocol: number;
+    releasesPath: string;
+    builtinVersion: string;
+    running: "builtin" | "installed";
+  };
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -45,6 +56,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     throw new Error(`Configuration invalide : ${issue?.path.join(".")} — ${issue?.message}`);
   }
   const e = parsed.data;
+  // La version assemblée fait foi (une ancienne variable APP_VERSION ne doit pas la masquer).
+  const version = BUNDLED_VERSION ?? env.APP_VERSION ?? "0.0.0-dev";
   return {
     port: e.APP_PORT,
     host: e.APP_HOST,
@@ -62,6 +75,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     logLevel: e.LOG_LEVEL,
     webDistPath: e.WEB_DIST_PATH ? path.resolve(e.WEB_DIST_PATH) : null,
     sessionHours: e.SESSION_HOURS,
-    version: env.APP_VERSION ?? "1.1.0",
+    version,
+    update: {
+      supervised: env.DE_SUPERVISED === "1",
+      supervisorProtocol: Number(env.DE_SUPERVISOR_PROTOCOL ?? 0) || 0,
+      releasesPath: releasesPath(env),
+      builtinVersion: env.DE_BUILTIN_VERSION ?? version,
+      running: env.DE_RUNNING === "installed" ? "installed" : "builtin",
+    },
   };
 }
