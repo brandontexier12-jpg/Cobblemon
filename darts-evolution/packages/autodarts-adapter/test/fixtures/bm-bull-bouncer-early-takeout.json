@@ -1,0 +1,12 @@
+{
+  "description": "Bull intérieur, double 16, rebond (Miss, bouncer) puis bull extérieur ; retrait anticipé après 2 fléchettes",
+  "generation": 2,
+  "messages": [
+    {"type":"state","data":{"connected":true,"running":true,"event":"Throw detected","status":"Throw","numThrows":1,"throws":[{"bouncer":false,"coords":{"x":0.01,"y":0.012},"segment":{"bed":"Double","multiplier":2,"name":"Bull","number":25}}]}},
+    {"type":"state","data":{"connected":true,"running":true,"event":"Throw detected","status":"Throw","numThrows":2,"throws":[{"bouncer":false,"coords":{"x":0.01,"y":0.012},"segment":{"bed":"Double","multiplier":2,"name":"Bull","number":25}},{"bouncer":false,"coords":{"x":-0.83,"y":-0.48},"segment":{"bed":"Double","multiplier":2,"name":"D16","number":16}}]}},
+    {"type":"state","data":{"connected":true,"running":true,"event":"Takeout started","status":"Takeout in progress","numThrows":2,"throws":[{"bouncer":false,"coords":{"x":0.01,"y":0.012},"segment":{"bed":"Double","multiplier":2,"name":"Bull","number":25}},{"bouncer":false,"coords":{"x":-0.83,"y":-0.48},"segment":{"bed":"Double","multiplier":2,"name":"D16","number":16}}]}},
+    {"type":"state","data":{"connected":true,"running":true,"event":"Takeout finished","status":"Throw","numThrows":0}},
+    {"type":"state","data":{"connected":true,"running":true,"event":"Throw detected","status":"Throw","numThrows":1,"throws":[{"bouncer":true,"coords":{"x":0,"y":0},"segment":{"bed":"Outside","multiplier":0,"name":"Miss","number":0}}]}},
+    {"type":"state","data":{"connected":true,"running":true,"event":"Throw detected","status":"Throw","numThrows":2,"throws":[{"bouncer":true,"coords":{"x":0,"y":0},"segment":{"bed":"Outside","multiplier":0,"name":"Miss","number":0}},{"bouncer":false,"coords":{"x":0.05,"y":0.04},"segment":{"bed":"Single","multiplier":1,"name":"25","number":25}}]}}
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "description": "Board Manager 1.x : D20, T19, S5 (SingleOuter) puis retrait",
+  "generation": 1,
+  "messages": [
+    {"type":"state","data":{"connected":true,"running":true,"event":"Throw detected","status":"Throw","numThrows":1,"throws":[{"coords":{"x":0.01,"y":0.97},"segment":{"bed":"Double","multiplier":2,"name":"D20","number":20}}]}},
+    {"type":"state","data":{"connected":true,"running":true,"event":"Throw detected","status":"Throw","numThrows":2,"throws":[{"coords":{"x":0.01,"y":0.97},"segment":{"bed":"Double","multiplier":2,"name":"D20","number":20}},{"coords":{"x":-0.3,"y":-0.52},"segment":{"bed":"Triple","multiplier":3,"name":"T19","number":19}}]}},
+    {"type":"state","data":{"connected":true,"running":true,"event":"Throw detected","status":"Takeout","numThrows":3,"throws":[{"coords":{"x":0.01,"y":0.97},"segment":{"bed":"Double","multiplier":2,"name":"D20","number":20}},{"coords":{"x":-0.3,"y":-0.52},"segment":{"bed":"Triple","multiplier":3,"name":"T19","number":19}},{"coords":{"x":-0.24,"y":0.76},"segment":{"bed":"SingleOuter","multiplier":1,"name":"S5","number":5}}]}},
+    {"type":"state","data":{"connected":true,"running":true,"event":"Takeout started","status":"Takeout in progress","numThrows":3,"throws":[{"coords":{"x":0.01,"y":0.97},"segment":{"bed":"Double","multiplier":2,"name":"D20","number":20}},{"coords":{"x":-0.3,"y":-0.52},"segment":{"bed":"Triple","multiplier":3,"name":"T19","number":19}},{"coords":{"x":-0.24,"y":0.76},"segment":{"bed":"SingleOuter","multiplier":1,"name":"S5","number":5}}]}},
+    {"type":"state","data":{"connected":true,"running":true,"event":"Takeout finished","status":"Throw","numThrows":0,"throws":[]}}
+  ]
+}

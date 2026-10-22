@@ -9,6 +9,15 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@darts-evolution/shared": "1.0.0", "ws": "8.22.0", "zod": "3.25.76"
+    "@darts-evolution/shared": "1.0.0",
+    "ws": "8.22.0",
+    "zod": "3.25.76"
+  },
+  "scripts": {
+    "simulator": "tsx src/simulator-cli.ts",
+    "capture": "tsx src/capture-cli.ts"
+  },
+  "devDependencies": {
+    "@types/ws": "8.18.2"
   }
 }

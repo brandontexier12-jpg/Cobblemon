@@ -1,0 +1,12 @@
+{
+  "description": "Visite complète T20, S20, raté hors cible (M17), puis retrait — forme Board Manager 2.0.2",
+  "generation": 2,
+  "messages": [
+    {"type":"state","data":{"connected":true,"running":true,"event":"Throw detected","status":"Throw","numThrows":1,"throws":[{"bouncer":false,"coords":{"x":0.0021,"y":0.6012},"segment":{"bed":"Triple","multiplier":3,"name":"T20","number":20}}]}},
+    {"type":"motion_state","data":{"isStable":true,"isHand":false,"isTakeoutPartial":false,"isTakeoutFull":false}},
+    {"type":"state","data":{"connected":true,"running":true,"event":"Throw detected","status":"Throw","numThrows":2,"throws":[{"bouncer":false,"coords":{"x":0.0021,"y":0.6012},"segment":{"bed":"Triple","multiplier":3,"name":"T20","number":20}},{"bouncer":false,"coords":{"x":0.0029,"y":0.3003},"segment":{"bed":"SingleInner","multiplier":1,"name":"S20","number":20}}]}},
+    {"type":"state","data":{"connected":true,"running":true,"event":"Throw detected","status":"Takeout","numThrows":3,"throws":[{"bouncer":false,"coords":{"x":0.0021,"y":0.6012},"segment":{"bed":"Triple","multiplier":3,"name":"T20","number":20}},{"bouncer":false,"coords":{"x":0.0029,"y":0.3003},"segment":{"bed":"SingleInner","multiplier":1,"name":"S20","number":20}},{"bouncer":false,"coords":{"x":-0.42,"y":-1.08},"segment":{"bed":"Outside","multiplier":0,"name":"M17","number":17}}]}},
+    {"type":"state","data":{"connected":true,"running":true,"event":"Takeout started","status":"Takeout in progress","numThrows":3,"throws":[{"bouncer":false,"coords":{"x":0.0021,"y":0.6012},"segment":{"bed":"Triple","multiplier":3,"name":"T20","number":20}},{"bouncer":false,"coords":{"x":0.0029,"y":0.3003},"segment":{"bed":"SingleInner","multiplier":1,"name":"S20","number":20}},{"bouncer":false,"coords":{"x":-0.42,"y":-1.08},"segment":{"bed":"Outside","multiplier":0,"name":"M17","number":17}}]}},
+    {"type":"state","data":{"connected":true,"running":true,"event":"Takeout finished","status":"Throw","numThrows":0}}
+  ]
+}
