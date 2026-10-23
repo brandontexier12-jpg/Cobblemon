@@ -97,6 +97,17 @@ Options par défaut : `{"rounds":7,"instantWin":true}`
 
 ## Entraînements
 
+### Échauffement
+
+*Lancer librement 100, 200 ou 300 fléchettes : compteur et score.* — 1 à 4 joueur(s).
+
+- Lancez où vous voulez : chaque fléchette est comptée et ses points s'ajoutent au score.
+- La séance se termine automatiquement quand le nombre de fléchettes choisi est atteint (la dernière volée peut compter moins de 3 fléchettes).
+- Affichage : fléchettes lancées, score total, moyenne sur 3 fléchettes, meilleure visite, visites à 100+, 140+ et 180.
+- À plusieurs, chacun lance le même nombre de fléchettes ; le meilleur score l'emporte.
+
+Options par défaut : `{"darts":100}`
+
 ### Bob's 27
 
 *Entraînement aux doubles de Bob Anderson : départ à 27 points.* — 1 à 8 joueur(s).

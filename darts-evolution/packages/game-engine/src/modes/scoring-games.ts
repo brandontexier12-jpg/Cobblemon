@@ -98,3 +98,89 @@ export const highScore: ModeRules<HighScoreConfig, TotalsState> = {
     };
   },
 };
+
+/* ------------------------------------------------------------------ */
+/* Échauffement : lancer librement un nombre de fléchettes fixé.       */
+/* ------------------------------------------------------------------ */
+
+export interface WarmupConfig {
+  /** Nombre de fléchettes de la séance (100, 200, 300…). */
+  darts: number;
+}
+
+export interface WarmupState {
+  totals: number[];
+  darts: number[];
+  bestVisit: number[];
+  /** Visites à 100 et plus, 140 et plus, et 180. */
+  tons: number[];
+  ton40: number[];
+  max: number[];
+}
+
+function warmupDone(config: WarmupConfig, m: WarmupState, i: number): boolean {
+  return (m.darts[i] as number) >= config.darts;
+}
+
+export const warmup: ModeRules<WarmupConfig, WarmupState> = {
+  id: "warmup",
+  init(_config, players) {
+    const zeros = () => Array(players.length).fill(0);
+    return { playerIndex: 0, m: { totals: zeros(), darts: zeros(), bestVisit: zeros(), tons: zeros(), ton40: zeros(), max: zeros() } };
+  },
+  onDart(ctx, dart) {
+    const m = structuredClone(ctx.m);
+    const i = ctx.playerIndex;
+    const points = dartScore(dart);
+    m.totals[i] = (m.totals[i] as number) + points;
+    m.darts[i] = (m.darts[i] as number) + 1;
+    if (!warmupDone(ctx.config, m, i)) return { m, points };
+    // Dernière fléchette du joueur : sa visite s'arrête là (même avant la 3e fléchette).
+    const all = ctx.players.every((_, j) => warmupDone(ctx.config, m, j));
+    if (!all) return { m, points, endVisit: "done" };
+    const winners = ctx.players.length > 1 ? bestPlayers(m.totals, ctx.players.map((p) => p.id)) : [];
+    return { m, points, endVisit: "done", finished: { winners } };
+  },
+  onVisitComplete(ctx) {
+    const m = structuredClone(ctx.m);
+    const i = ctx.playerIndex;
+    const visit = ctx.visitDarts.reduce((s, d) => s + d.points, 0);
+    m.bestVisit[i] = Math.max(m.bestVisit[i] as number, visit);
+    if (visit >= 100) m.tons[i] = (m.tons[i] as number) + 1;
+    if (visit >= 140) m.ton40[i] = (m.ton40[i] as number) + 1;
+    if (visit === 180) m.max[i] = (m.max[i] as number) + 1;
+    return { m, record: {} };
+  },
+  advance(ctx) {
+    // Les joueurs qui ont lancé toutes leurs fléchettes ne jouent plus.
+    let next = ctx.playerIndex;
+    let round = ctx.round;
+    for (let k = 0; k < ctx.players.length; k++) {
+      next = nextIndex(next, ctx.players.length);
+      if (next === 0) round++;
+      if (!warmupDone(ctx.config, ctx.m, next)) break;
+    }
+    return { m: ctx.m, playerIndex: next, round };
+  },
+  view(state) {
+    const i = state.turn.playerIndex;
+    const left = Math.max(0, state.config.darts - (state.m.darts[i] as number));
+    return {
+      headline: `Échauffement · ${state.config.darts} fléchettes`,
+      instruction: state.finished ? undefined : left <= 3 ? `Dernière volée : ${left} fléchette${left > 1 ? "s" : ""}` : `Lancez librement : encore ${left} fléchettes`,
+      players: state.players.map((p, j) => ({
+        id: p.id,
+        name: p.name,
+        main: String(state.m.darts[j]),
+        mainLabel: `fléchettes sur ${state.config.darts}`,
+        details: [
+          { label: "Score", value: String(state.m.totals[j]) },
+          { label: "Moy. 3 fl.", value: average3(state.visits.filter((v) => v.playerId === p.id)) },
+          { label: "Meilleure visite", value: String(state.m.bestVisit[j]) },
+          { label: "100+ / 140+ / 180", value: `${state.m.tons[j]} / ${state.m.ton40[j]} / ${state.m.max[j]}` },
+        ],
+        winner: state.winners.includes(p.id),
+      })),
+    };
+  },
+};

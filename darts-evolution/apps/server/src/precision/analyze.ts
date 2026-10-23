@@ -41,7 +41,7 @@ export interface Impact {
 }
 
 /** Modes où le joueur marque des points (scoring au T20, sorties). */
-const SCORING_MODES = new Set<GameModeId>(["x01", "count_up", "high_score", "checkout_training"]);
+const SCORING_MODES = new Set<GameModeId>(["x01", "count_up", "high_score", "warmup", "checkout_training"]);
 /** Modes à cible imposée. */
 const TARGET_MODES = new Set<GameModeId>(["doubles_training", "triples_training", "bull_training", "bobs_27", "around_the_clock"]);
 

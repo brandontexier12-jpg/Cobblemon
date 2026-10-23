@@ -195,6 +195,7 @@ function finalScoreOf(state: GameState, index: number): number | null {
       return pick("scores");
     case "count_up":
     case "high_score":
+    case "warmup":
       return pick("totals");
     case "cricket":
     case "around_the_world":

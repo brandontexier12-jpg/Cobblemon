@@ -95,7 +95,7 @@ est déduite comme le ferait un joueur (même logique que les bots) :
 
 | Situation | Cible retenue |
 |---|---|
-| X01 au scoring, Count-Up, High Score | T20, ou T19 si la fléchette est tombée plus près du 19 que du 20 |
+| X01 au scoring, Count-Up, High Score, Échauffement | T20, ou T19 si la fléchette est tombée plus près du 19 que du 20 |
 | X01 en zone de sortie, entraînement aux sorties | le double de la sortie (ou le bull à 50) ; les fléchettes de préparation (ex. S19 pour laisser 32) sont ignorées |
 | Entraînements doubles, triples, bull, Bob's 27, tour de l'horloge (case imposée) | la cible affichée |
 | Cricket, Killer, départ double, tour de l'horloge « toute la case » | non analysées (intention incertaine) |

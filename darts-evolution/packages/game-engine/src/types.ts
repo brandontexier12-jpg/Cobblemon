@@ -5,6 +5,7 @@ export type GameModeId =
   | "cricket"
   | "count_up"
   | "high_score"
+  | "warmup"
   | "around_the_clock"
   | "around_the_world"
   | "bobs_27"

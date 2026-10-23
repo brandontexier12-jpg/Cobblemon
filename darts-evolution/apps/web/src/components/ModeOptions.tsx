@@ -201,6 +201,13 @@ export function ModeOptionsForm({ mode, options, onChange }: { mode: GameModeId;
         </Field>,
       );
       break;
+    case "warmup":
+      rows.push(
+        <Field key="d" label="Nombre de fléchettes">
+          <Segmented value={num("darts", 100)} onChange={(v) => set("darts", v)} options={[100, 200, 300].map((v) => ({ value: v, label: String(v) }))} />
+        </Field>,
+      );
+      break;
     case "high_score":
       rows.push(
         <Field key="r" label="Nombre de manches">

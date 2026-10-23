@@ -14,7 +14,7 @@ export type GameCue =
   | { kind: "turn"; newLeg: boolean };
 
 /** Modes où le score de chaque visite est annoncé. */
-const SCORE_MODES: GameModeId[] = ["x01", "count_up", "high_score"];
+const SCORE_MODES: GameModeId[] = ["x01", "count_up", "high_score", "warmup"];
 
 interface Frame {
   matchId: string;

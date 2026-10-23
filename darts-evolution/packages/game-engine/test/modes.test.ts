@@ -29,6 +29,44 @@ describe("High Score", () => {
   });
 });
 
+describe("Échauffement", () => {
+  it("compte les fléchettes et le score, et s'arrête pile au nombre choisi (dernière volée incomplète)", () => {
+    let s = newGame("warmup", { darts: 100 }, [ALICE]);
+    expect(s.config).toEqual({ darts: 100 });
+    // 33 volées de 3 fléchettes = 99 fléchettes : un 180, un 140 (T20 T20 S20), le reste à 60.
+    s = play(s, "T20", "T20", "T20");
+    s = play(s, "T20", "T20", "S20");
+    for (let v = 0; v < 31; v++) s = play(s, "S20", "S20", "S20");
+    expect(s.finished).toBe(false);
+    let view = describeGame(s);
+    expect(view.players[0]).toMatchObject({ main: "99", mainLabel: "fléchettes sur 100" });
+    // Volée suivante : une seule fléchette, puis fin de séance.
+    s = play(s, "T19");
+    expect(s.finished).toBe(true);
+    expect(s.winners).toEqual([]);
+    expect(s.visits).toHaveLength(34);
+    expect(s.visits.at(-1)!.darts).toHaveLength(1);
+    view = describeGame(s);
+    const details = Object.fromEntries(view.players[0]!.details.map((d) => [d.label, d.value]));
+    expect(view.players[0]!.main).toBe("100");
+    expect(details).toMatchObject({ Score: String(180 + 140 + 31 * 60 + 57), "Meilleure visite": "180", "100+ / 140+ / 180": "2 / 2 / 1" });
+    expect(() => play(s, "S1")).toThrow();
+  });
+
+  it("à plusieurs : chacun lance le même nombre de fléchettes, le meilleur score gagne", () => {
+    let s = newGame("warmup", { darts: 30 }, [ALICE, BOB]);
+    for (let v = 0; v < 9; v++) s = play(s, "S20", "S20", "S20", "S1", "S1", "S1");
+    s = play(s, "S20", "S20", "S20");
+    expect(s.finished).toBe(false); // Alice a fini, Bob lance encore sa dernière volée
+    expect(s.turn.complete).toBe(true);
+    s = play(s, "S1", "S1", "S1");
+    expect(s.finished).toBe(true);
+    expect(s.winners).toEqual(["alice"]);
+    expect(describeGame(s).players.map((p) => p.main)).toEqual(["30", "30"]);
+    expect(() => newGame("warmup", { darts: 10 }, [ALICE])).toThrow();
+  });
+});
+
 describe("Around the Clock", () => {
   it("avance dans l'ordre et gagne sur le bull", () => {
     let s = newGame("around_the_clock", { includeBull: true }, [ALICE]);

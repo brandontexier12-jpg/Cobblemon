@@ -171,6 +171,7 @@ export function chooseAim(state: GameState): Aim {
     }
     case "count_up":
     case "high_score":
+    case "warmup":
       return { segment: 20, ring: "triple" };
     case "killer": {
       const config = state.config as KillerConfig;

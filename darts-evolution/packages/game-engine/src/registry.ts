@@ -27,6 +27,7 @@ export const OPTION_SCHEMAS = {
   }),
   count_up: z.object({ target: z.number().int().min(50).max(5000).default(300) }),
   high_score: z.object({ rounds: z.number().int().min(1).max(50).default(10) }),
+  warmup: z.object({ darts: z.number().int().min(30).max(999).default(100) }),
   around_the_clock: z.object({
     ring: z.enum(["any", "single", "double", "triple"]).default("any"),
     includeBull: z.boolean().default(true),
@@ -181,6 +182,20 @@ export const MODES: ModeDefinition[] = [
       "La manche 1 se joue sur le 1, la manche 2 sur le 2… jusqu'au 20, puis une manche sur le bull si l'option est activée.",
       "Chaque touche du numéro de la manche rapporte son multiplicateur : simple 1, double 2, triple 3 (bull extérieur 1, bull intérieur 2).",
       "Le meilleur total à la fin gagne.",
+    ],
+  },
+  {
+    id: "warmup",
+    name: "Échauffement",
+    category: "training",
+    summary: "Lancer librement 100, 200 ou 300 fléchettes : compteur et score.",
+    minPlayers: 1,
+    maxPlayers: 4,
+    rules: [
+      "Lancez où vous voulez : chaque fléchette est comptée et ses points s'ajoutent au score.",
+      "La séance se termine automatiquement quand le nombre de fléchettes choisi est atteint (la dernière volée peut compter moins de 3 fléchettes).",
+      "Affichage : fléchettes lancées, score total, moyenne sur 3 fléchettes, meilleure visite, visites à 100+, 140+ et 180.",
+      "À plusieurs, chacun lance le même nombre de fléchettes ; le meilleur score l'emporte.",
     ],
   },
   {
