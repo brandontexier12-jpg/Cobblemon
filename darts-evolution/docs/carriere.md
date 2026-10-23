@@ -12,11 +12,16 @@ Menu **Carrière** → « Nouvelle carrière ».
 |---|---|
 | Joueur | Un profil (pas un invité) : les matchs de carrière comptent dans ses statistiques. |
 | Nationalité | Drapeau affiché dans les tableaux. |
-| Difficulté | Niveau des joueurs du circuit (moyenne 3 fléchettes des détenteurs de Tour Card) : **Débutant** 48–80, **Amateur** 58–90, **Semi-pro** 68–98, **Pro (réaliste)** 84–106, **Légende** 92–114. Les joueurs sans carte (Q-School, Challenge Tour, WDF) sont nettement plus faibles. |
+| Difficulté | Niveau des joueurs du circuit, en moyenne 3 fléchettes (détenteurs de Tour Card / joueurs sans carte de la Q-School, du Challenge Tour et de la WDF) : **Sur mesure** (par défaut) adapté à votre moyenne X01 actuelle, de votre moyenne − 4 à + 28 pour les pros et de − 14 à + 4 pour les amateurs ; **Débutant** 28–52 / 15–32 ; **Amateur** 40–68 / 25–45 ; **Semi-pro** 56–86 / 38–62 ; **Pro (réaliste)** 84–106 / 62–86 ; **Légende** 92–114 / 74–95. |
 | Finish | **Double sortie** ou **sortie simple**, pour tous les matchs de la carrière. |
 | Longueur des matchs | **Réelle** (formats officiels), **raccourcie** (environ la moitié des legs ou sets) ou **courte** (environ un tiers). Exemple, finale du World Matchplay : premier à 18, 9 ou 6 legs. |
 | Départ | **Q-School** (réaliste : il faut gagner sa Tour Card) ou **avec une Tour Card** valable deux saisons, sans gains. |
 | Calendrier allégé | Moins de Players Championships et d'étapes de l'European Tour. |
+
+En cours de carrière, le bouton **Réglages** du tableau de bord permet de changer la difficulté, le
+finish et la longueur des matchs. Un changement de difficulté remet tout le circuit à l'échelle du
+nouveau niveau en gardant l'ordre entre les joueurs (le meilleur reste le meilleur) ; classements,
+palmarès et matchs déjà joués ne changent pas.
 
 ## Le circuit
 

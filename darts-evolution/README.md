@@ -59,10 +59,12 @@ Ouvrir `http://IP_DU_NAS:8080`, créer les joueurs (**Joueurs**), puis **Jouer**
   terminée : la partie est rejouée, statistiques et compétitions mises à jour.
 - **Parties interrompues** reprises après un redémarrage (liste « Parties en cours » sur l'accueil).
 
-**Bots** : une vingtaine d'adversaires virtuels de 20 à 170 de moyenne (Jouer → « Adversaire bot »). Le bot
+**Bots** : une vingtaine d'adversaires virtuels de 10 à 170 de moyenne (Jouer → « Adversaire bot »). Le bot
 vise comme un joueur (triple 20, sortie conseillée, placement sans bust, cible du mode) et sa fléchette
-s'écarte du point visé selon une dispersion calibrée par simulation de legs de 501 : un bot 60 fait environ 60
-de moyenne en partie, sorties comprises (le niveau 170 joue au maximum possible en 501, ≈ 167). Ses
+s'écarte du point visé selon une dispersion calibrée par simulation de legs de 501, séparément en sortie
+double et en sortie simple : un bot 60 fait environ 60 de moyenne en partie, sorties comprises, quelle que
+soit la règle de sortie (le niveau 170 joue au maximum possible en 501, ≈ 167). Le niveau proposé par défaut
+est celui juste en dessous de votre moyenne X01 (25 tant que vous avez moins de 30 fléchettes jouées). Ses
 fléchettes s'affichent sur la cible (badge BOT) ; il joue seul et rend la main. En saisie manuelle, la main
 lui passe automatiquement ; avec Autodarts, au retrait des fléchettes, et la cible réelle est ignorée pendant
 son tour. Une annulation met les bots en pause quelques secondes.

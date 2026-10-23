@@ -22,6 +22,7 @@ export function registerCareerRoutes(app: FastifyInstance, ctx: AppContext): voi
     return result;
   });
   app.post("/api/careers/:id/continue", async (req) => ctx.careers.continue(id.parse(req.params).id));
+  app.patch("/api/careers/:id/settings", async (req) => ctx.careers.updateSettings(id.parse(req.params).id, req.body));
 
   app.get("/api/careers/:id/rankings", async (req) => {
     const q = z.object({ category: z.enum(["pdc", "protour", "eurotour", "pc", "ws", "challenge", "wdf"]).default("pdc") }).parse(req.query);

@@ -5,7 +5,10 @@ import { eventDef, MONTHS, TIER_LABEL, type Category, type EventDef, type StageF
 import {
   advance,
   createCareer,
+  customRanges,
   DIFFICULTIES,
+  rangesOf,
+  rescaleCircuit,
   groupTable,
   HUMAN,
   humanRank,
@@ -38,12 +41,18 @@ interface CareerRow {
 export const CreateCareerInput = z.object({
   playerId: z.string().uuid(),
   name: z.string().trim().max(60).optional(),
-  difficulty: z.enum(["debutant", "amateur", "semi_pro", "pro", "legende"]).default("pro"),
+  difficulty: z.enum(["sur_mesure", "debutant", "amateur", "semi_pro", "pro", "legende"]).default("pro"),
   outRule: z.enum(["single", "double"]).default("double"),
   matchLength: z.enum(["reelle", "raccourcie", "courte"]).default("raccourcie"),
   light: z.boolean().default(false),
   start: z.enum(["qschool", "tourcard"]).default("qschool"),
   country: z.string().length(3).default("FRA"),
+});
+
+export const SettingsInput = z.object({
+  difficulty: z.enum(["sur_mesure", "debutant", "amateur", "semi_pro", "pro", "legende"]).optional(),
+  outRule: z.enum(["single", "double"]).optional(),
+  matchLength: z.enum(["reelle", "raccourcie", "courte"]).optional(),
 });
 
 export const RenameInput = z.object({
@@ -144,10 +153,18 @@ export class CareerService {
     const player = this.players.get(data.playerId);
     if (player.isGuest || player.archivedAt) throw badRequest("Choisissez un profil de joueur (pas un invité ni un bot).");
     const season = startSeason();
+    const average = this.averageOf(player.id);
     const state = createCareer(
       randomInt(2 ** 31),
-      { difficulty: data.difficulty, outRule: data.outRule, matchLength: data.matchLength, light: data.light, start: data.start },
-      { name: player.name, country: data.country, rating: this.averageOf(player.id) ?? 50 },
+      {
+        difficulty: data.difficulty,
+        outRule: data.outRule,
+        matchLength: data.matchLength,
+        light: data.light,
+        start: data.start,
+        ...(data.difficulty === "sur_mesure" ? { ranges: customRanges(average ?? 30) } : {}),
+      },
+      { name: player.name, country: data.country, rating: average ?? 50 },
       season,
     );
     advance(state);
@@ -167,6 +184,28 @@ export class CareerService {
    * Supprime une carrière. Les matchs terminés restent dans l'historique et les statistiques du
    * joueur ; un match encore en cours est abandonné, pour ne pas rester dans « Parties en cours ».
    */
+  /**
+   * Réglages d'une carrière en cours. Une nouvelle difficulté recalcule le niveau de tout le
+   * circuit (chacun garde son rang relatif) ; tout s'applique aux prochains matchs.
+   */
+  updateSettings(id: string, input: unknown) {
+    const data = SettingsInput.parse(input);
+    this.db.transaction(() => {
+      const { row, state } = this.load(id);
+      if (data.difficulty) {
+        const from = rangesOf(state.settings);
+        state.settings.difficulty = data.difficulty;
+        if (data.difficulty === "sur_mesure") state.settings.ranges = customRanges(this.averageOf(row.player_id) ?? 30);
+        else delete state.settings.ranges;
+        rescaleCircuit(state, from, rangesOf(state.settings));
+      }
+      if (data.outRule) state.settings.outRule = data.outRule;
+      if (data.matchLength) state.settings.matchLength = data.matchLength;
+      this.save(id, state);
+    });
+    return this.get(id);
+  }
+
   delete(id: string): { abandoned: number } {
     this.row(id);
     const active = this.db.all<{ id: string }>("SELECT id FROM matches WHERE career_id = $c AND status = 'active'", { $c: id });
@@ -404,7 +443,7 @@ export class CareerService {
       playerId: row.player_id,
       createdAt: row.created_at,
       season: state.season,
-      settings: { ...state.settings, difficultyLabel: DIFFICULTIES[state.settings.difficulty].label },
+      settings: { ...state.settings, difficultyLabel: DIFFICULTIES[state.settings.difficulty].label, ranges: rangesOf(state.settings) },
       me: {
         ...this.playerInfo(me, ranks),
         cardUntil: me.cardUntil,

@@ -4,12 +4,16 @@ import {
   advance,
   bracketOrder,
   createCareer,
+  customRanges,
+  DIFFICULTIES,
   HUMAN,
   humanRank,
   moneyOf,
   pendingMatchFormat,
   pendingRoundLabel,
   ranking,
+  rangesOf,
+  rescaleCircuit,
   scaleFormat,
   TOUR_CARDS,
   type CareerSettings,
@@ -62,6 +66,30 @@ describe("mode carrière : création", () => {
     expect(humanRank(s)).toBeNull();
     // Avec une Tour Card d'emblée, le joueur part lui aussi de zéro.
     expect(humanRank(newCareer({ start: "tourcard" }))).toBeNull();
+  });
+
+  it("difficultés accessibles : Débutant et Sur mesure restent à portée d'un joueur qui débute", () => {
+    const easy = newCareer({ difficulty: "debutant" }).players.filter((p) => !p.human);
+    const amateurs = easy.filter((p) => !p.card).map((p) => p.rating);
+    expect(Math.max(...amateurs)).toBeLessThan(40);
+    expect(Math.min(...amateurs)).toBeGreaterThanOrEqual(10);
+    expect(customRanges(30)).toEqual({ card: [26, 58], amateurs: [16, 34] });
+    expect(customRanges(5).amateurs[0]).toBe(10);
+    const mine = createCareer(3, { ...SETTINGS, difficulty: "sur_mesure", ranges: customRanges(25) }, { name: "Alice", country: "FRA", rating: 25 }, 2027);
+    expect(Math.max(...mine.players.filter((p) => !p.card && !p.human).map((p) => p.rating))).toBeLessThan(33);
+  });
+
+  it("changer de difficulté en cours de route recalcule le circuit sans changer l'ordre des joueurs", () => {
+    const s = newCareer();
+    const before = s.players.filter((p) => !p.human).map((p) => p.rating);
+    rescaleCircuit(s, rangesOf(s.settings), DIFFICULTIES.debutant);
+    const after = s.players.filter((p) => !p.human).map((p) => p.rating);
+    expect(Math.max(...after)).toBeLessThan(56);
+    expect(Math.min(...after)).toBeGreaterThanOrEqual(10);
+    // Aucun joueur ne passe devant un autre (des égalités peuvent apparaître à l'arrondi).
+    for (let i = 0; i < before.length; i++) {
+      for (let j = 0; j < before.length; j++) if (before[i]! > before[j]!) expect(after[i]!).toBeGreaterThanOrEqual(after[j]!);
+    }
   });
 
   it("la même graine donne exactement la même carrière", () => {

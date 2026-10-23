@@ -25,13 +25,25 @@ describe("bots", () => {
     const app = await open();
     const levels = await app.json("GET", "/api/bots");
     expect(levels.length).toBeGreaterThanOrEqual(20);
-    expect(levels[0]).toMatchObject({ average: 20, name: "Bot 20" });
+    expect(levels[0]).toMatchObject({ average: 10, name: "Bot 10", label: "Initiation" });
     const a = await app.json("POST", "/api/bots/60");
     const b = await app.json("POST", "/api/bots/60");
     expect(a).toMatchObject({ name: "Bot 60", avatar: "🤖", botAverage: 60, isGuest: true });
     expect(b.id).toBe(a.id);
     expect((await app.request("POST", "/api/bots/61")).statusCode).toBe(400);
     expect((await app.json("GET", "/api/players")).length).toBe(0);
+  });
+
+  it("conseille un niveau de bot d'après la moyenne X01 du joueur", async () => {
+    const app = await open();
+    const [alice] = await createPlayers(app, "Alice");
+    expect(await app.json("GET", `/api/bots/recommended?playerId=${alice}`)).toEqual({ average: 25, playerAverage: null });
+    // 33 fléchettes à 11 points de moyenne : 33 de moyenne sur 3 fléchettes → bot 30 conseillé.
+    const { match } = await app.json("POST", "/api/matches", { mode: "x01", options: { startScore: 501 }, playerIds: [alice] });
+    await throwDarts(app, match.id, ...Array.from({ length: 33 }, () => "S11"));
+    const r = await app.json("GET", `/api/bots/recommended?playerId=${alice}`);
+    expect(r.playerAverage).toBeCloseTo(33, 0);
+    expect(r.average).toBe(30);
   });
 
   it("joue seul son tour puis rend la main ; un humain ne peut pas lancer à sa place", async () => {

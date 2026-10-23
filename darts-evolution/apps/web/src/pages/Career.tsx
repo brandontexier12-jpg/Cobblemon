@@ -99,7 +99,14 @@ interface CareerView {
   id: string;
   name: string;
   season: number;
-  settings: { outRule: "single" | "double"; matchLength: "reelle" | "raccourcie" | "courte"; light: boolean; difficultyLabel: string };
+  settings: {
+    difficulty: string;
+    outRule: "single" | "double";
+    matchLength: "reelle" | "raccourcie" | "courte";
+    light: boolean;
+    difficultyLabel: string;
+    ranges: { card: [number, number]; amateurs: [number, number] };
+  };
   me: PlayerInfo & {
     cardUntil: number | null;
     money: number;
@@ -198,7 +205,7 @@ function CreateCareer({ onCancel }: { onCancel: () => void }) {
   const [playerId, setPlayerId] = useState(activePlayerId ?? humans[0]?.id ?? "");
   const [name, setName] = useState("");
   const [country, setCountry] = useState("FRA");
-  const [difficulty, setDifficulty] = useState("pro");
+  const [difficulty, setDifficulty] = useState("sur_mesure");
   const [outRule, setOutRule] = useState<"double" | "single">("double");
   const [matchLength, setMatchLength] = useState<"courte" | "raccourcie" | "reelle">("raccourcie");
   const [start, setStart] = useState<"qschool" | "tourcard">("qschool");
@@ -252,21 +259,7 @@ function CreateCareer({ onCancel }: { onCancel: () => void }) {
 
       <div className="mt-4">
         <span className="mb-1.5 block text-sm font-medium text-ink-200">Difficulté</span>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5" role="radiogroup" aria-label="Difficulté">
-          {options.data?.difficulties.map((d) => (
-            <button
-              key={d.id}
-              type="button"
-              role="radio"
-              aria-checked={difficulty === d.id}
-              onClick={() => setDifficulty(d.id)}
-              className={`press rounded-xl border p-3 text-left ${difficulty === d.id ? "border-brand-500 bg-brand-500/15" : "border-ink-600 bg-ink-900 hover:border-ink-500"}`}
-            >
-              <span className={`block font-semibold ${difficulty === d.id ? "text-brand-300" : "text-ink-100"}`}>{d.label}</span>
-              <span className="block text-xs text-ink-400">{d.hint}</span>
-            </button>
-          ))}
-        </div>
+        <DifficultyPicker options={options.data?.difficulties ?? []} value={difficulty} onChange={setDifficulty} />
       </div>
 
       <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -317,6 +310,96 @@ function CreateCareer({ onCancel }: { onCancel: () => void }) {
   );
 }
 
+function DifficultyPicker({ options, value, onChange }: { options: Options["difficulties"]; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" role="radiogroup" aria-label="Difficulté">
+      {options.map((d) => (
+        <button
+          key={d.id}
+          type="button"
+          role="radio"
+          aria-checked={value === d.id}
+          onClick={() => onChange(d.id)}
+          className={`press rounded-xl border p-3 text-left ${value === d.id ? "border-brand-500 bg-brand-500/15" : "border-ink-600 bg-ink-900 hover:border-ink-500"}`}
+        >
+          <span className={`block font-semibold ${value === d.id ? "text-brand-300" : "text-ink-100"}`}>{d.label}</span>
+          <span className="block text-xs text-ink-400">{d.hint}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Réglages d'une carrière en cours : difficulté (le circuit est recalculé), finish, longueur des matchs. */
+function SettingsModal({ career, onClose, onSaved }: { career: CareerView; onClose: () => void; onSaved: () => void }) {
+  const { toast } = useUi();
+  const options = useAsync(() => api.get<Options>("/api/careers/options"), []);
+  const [difficulty, setDifficulty] = useState(career.settings.difficulty);
+  const [outRule, setOutRule] = useState(career.settings.outRule);
+  const [matchLength, setMatchLength] = useState(career.settings.matchLength);
+  const [busy, setBusy] = useState(false);
+  const r = career.settings.ranges;
+  const save = async () => {
+    setBusy(true);
+    try {
+      await api.patch(`/api/careers/${career.id}/settings`, { ...(difficulty !== career.settings.difficulty ? { difficulty } : {}), outRule, matchLength });
+      toast("Réglages enregistrés : ils s'appliquent aux prochains matchs.", "good");
+      onSaved();
+      onClose();
+    } catch (e) {
+      toast((e as Error).message, "critical");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal open onClose={onClose} title="Réglages de la carrière" wide>
+      <div className="space-y-4">
+        <p className="text-sm text-ink-300">
+          Niveau actuel du circuit : joueurs sans carte entre {Math.round(r.amateurs[0])} et {Math.round(r.amateurs[1])} de moyenne, pros entre {Math.round(r.card[0])} et{" "}
+          {Math.round(r.card[1])}. Changer la difficulté recalcule le niveau de tous les joueurs (chacun garde son rang) ; votre parcours et vos gains sont
+          conservés.
+        </p>
+        <Field label="Difficulté">
+          <DifficultyPicker options={options.data?.difficulties ?? []} value={difficulty} onChange={setDifficulty} />
+        </Field>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Finish">
+            <Segmented
+              value={outRule}
+              onChange={setOutRule}
+              options={[
+                { value: "double", label: "Double sortie" },
+                { value: "single", label: "Sortie simple" },
+              ]}
+            />
+          </Field>
+          <Field label="Longueur des matchs">
+            <Segmented
+              value={matchLength}
+              onChange={setMatchLength}
+              options={[
+                { value: "courte", label: "Courte" },
+                { value: "raccourcie", label: "Raccourcie" },
+                { value: "reelle", label: "Réelle" },
+              ]}
+            />
+          </Field>
+        </div>
+        <p className="text-xs text-ink-400">Un match déjà commencé garde son format et son adversaire ; les nouveaux réglages valent pour les matchs suivants.</p>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button variant="primary" icon="check" disabled={busy} onClick={save}>
+            Enregistrer
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ---------- Tableau de bord d'une carrière ----------
 
 type Tab = "tournoi" | "calendrier" | "classements" | "circuit" | "palmares";
@@ -327,6 +410,7 @@ export function CareerPage() {
   const [tab, setTab] = useState<Tab>("tournoi");
   const navigate = useNavigate();
   const remove = useDeleteCareer(() => navigate("/carriere"));
+  const [settingsOpen, setSettingsOpen] = useState(false);
   if (career.error) return <ErrorBox message={career.error} onRetry={career.reload} />;
   if (!career.data) return <Spinner label="Chargement de la carrière…" />;
   const c = career.data;
@@ -342,12 +426,16 @@ export function CareerPage() {
                 Carrières
               </Button>
             </Link>
+            <Button size="sm" variant="ghost" icon="settings" onClick={() => setSettingsOpen(true)}>
+              Réglages
+            </Button>
             <Button size="sm" variant="ghost" icon="trash" onClick={() => void remove(c)}>
               Supprimer
             </Button>
           </>
         }
       />
+      {settingsOpen && <SettingsModal career={c} onClose={() => setSettingsOpen(false)} onSaved={career.reload} />}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
         <StatTile label="Order of Merit" value={c.me.rank ? `#${c.me.rank}` : "—"} hint={c.me.rank ? "classement mondial PDC" : "non classé"} accent />
         <StatTile label="Gains (2 saisons)" value={<span className="text-2xl">{fmtMoney(c.me.money)}</span>} />

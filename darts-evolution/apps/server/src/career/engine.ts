@@ -13,19 +13,57 @@ import { simulateMatch } from "./sim.js";
  * décident des invitations aux tournois suivants et du maintien de la Tour Card.
  */
 
-export type Difficulty = "debutant" | "amateur" | "semi_pro" | "pro" | "legende";
+export type Difficulty = "sur_mesure" | "debutant" | "amateur" | "semi_pro" | "pro" | "legende";
 export type MatchLength = "reelle" | "raccourcie" | "courte";
 
 export const HUMAN = "me";
 export const TOUR_CARDS = 128;
 
-export const DIFFICULTIES: Record<Difficulty, { label: string; hint: string; card: [number, number]; amateurs: [number, number] }> = {
-  debutant: { label: "Débutant", hint: "Pros entre 48 et 80 de moyenne", card: [48, 80], amateurs: [30, 55] },
-  amateur: { label: "Amateur", hint: "Pros entre 58 et 90 de moyenne", card: [58, 90], amateurs: [40, 66] },
-  semi_pro: { label: "Semi-pro", hint: "Pros entre 68 et 98 de moyenne", card: [68, 98], amateurs: [50, 76] },
+export interface Ranges {
+  /** Moyennes des détenteurs de Tour Card (du moins bon au meilleur). */
+  card: [number, number];
+  /** Moyennes des joueurs sans carte (Q-School, Challenge Tour, WDF). */
+  amateurs: [number, number];
+}
+
+/** Plus bas niveau des bots du moteur de jeu. */
+const MIN_RATING = 10;
+
+export const DIFFICULTIES: Record<Difficulty, Ranges & { label: string; hint: string }> = {
+  sur_mesure: { label: "Sur mesure", hint: "Adapté à votre moyenne X01 actuelle", card: [26, 56], amateurs: [16, 34] },
+  debutant: { label: "Débutant", hint: "Joueur qui débute : Q-School entre 15 et 32 de moyenne, pros entre 28 et 52", card: [28, 52], amateurs: [15, 32] },
+  amateur: { label: "Amateur", hint: "Joueur loisir : Q-School entre 25 et 45, pros entre 40 et 68", card: [40, 68], amateurs: [25, 45] },
+  semi_pro: { label: "Semi-pro", hint: "Joueur de club : Q-School entre 38 et 62, pros entre 56 et 86", card: [56, 86], amateurs: [38, 62] },
   pro: { label: "Pro (réaliste)", hint: "Pros entre 84 et 106 de moyenne, comme sur le vrai circuit", card: [84, 106], amateurs: [62, 86] },
   legende: { label: "Légende", hint: "Pros entre 92 et 114 de moyenne", card: [92, 114], amateurs: [74, 95] },
 };
+
+/**
+ * Niveaux « sur mesure » d'après la moyenne du joueur : la Q-School se joue autour de son niveau,
+ * les meilleurs pros le dépassent d'une trentaine de points.
+ */
+export function customRanges(average: number): Ranges {
+  const a = Math.round(Math.max(MIN_RATING + 6, average));
+  return { card: [Math.max(MIN_RATING + 4, a - 4), a + 28], amateurs: [Math.max(MIN_RATING, a - 14), a + 4] };
+}
+
+export function rangesOf(settings: CareerSettings): Ranges {
+  return settings.ranges ?? DIFFICULTIES[settings.difficulty];
+}
+
+/**
+ * Change la difficulté d'une carrière en cours : chaque joueur du circuit garde sa place relative,
+ * son niveau est ramené linéairement de l'ancienne échelle à la nouvelle.
+ */
+export function rescaleCircuit(state: CareerState, from: Ranges, to: Ranges): void {
+  const [a0, a1] = [from.amateurs[0], from.card[1]];
+  const [b0, b1] = [to.amateurs[0], to.card[1]];
+  for (const p of state.players) {
+    if (p.human) continue;
+    const t = (p.rating - a0) / Math.max(1, a1 - a0);
+    p.rating = round1(Math.max(MIN_RATING, b0 + t * (b1 - b0)));
+  }
+}
 
 export interface CareerSettings {
   difficulty: Difficulty;
@@ -34,6 +72,8 @@ export interface CareerSettings {
   /** Calendrier allégé : moins de Players Championships et d'étapes de l'European Tour. */
   light: boolean;
   start: "qschool" | "tourcard";
+  /** Niveaux calculés (difficulté « sur mesure ») ; sinon ceux de la difficulté. */
+  ranges?: Ranges;
 }
 
 export interface CircuitPlayer {
@@ -163,13 +203,13 @@ export function createCareer(
   season: number,
 ): CareerState {
   const rng = new Rng(seed);
-  const range = DIFFICULTIES[settings.difficulty];
+  const range = rangesOf(settings);
   const taken = new Set<string>([human.name.toLowerCase()]);
   const players: CircuitPlayer[] = [];
   // 128 détenteurs de Tour Card : peu de joueurs d'élite, beaucoup de joueurs de milieu de tableau.
   for (let r = 0; r < TOUR_CARDS; r++) {
     const [lo, hi] = range.card;
-    const rating = clamp(hi - (hi - lo) * (r / (TOUR_CARDS - 1)) ** 0.6 + rng.normal(0, 1.5), lo - 4, hi + 2);
+    const rating = clamp(hi - (hi - lo) * (r / (TOUR_CARDS - 1)) ** 0.6 + rng.normal(0, 1.5), Math.max(MIN_RATING, lo - 4), hi + 2);
     const id = generateIdentity(rng, taken);
     players.push({ id: `p${players.length + 1}`, ...id, rating: round1(rating), age: rng.int(21, 46), card: true, cardUntil: season + rng.int(0, 1), titles: 0 });
   }
@@ -177,7 +217,7 @@ export function createCareer(
   for (let r = 0; r < 140; r++) {
     const [lo, hi] = range.amateurs;
     const id = generateIdentity(rng, taken);
-    players.push({ id: `p${players.length + 1}`, ...id, rating: round1(clamp(rng.normal((lo + hi) / 2, (hi - lo) / 4), lo - 6, hi + 3)), age: rng.int(18, 50), card: false, cardUntil: null, titles: 0 });
+    players.push({ id: `p${players.length + 1}`, ...id, rating: round1(clamp(rng.normal((lo + hi) / 2, (hi - lo) / 4), Math.max(MIN_RATING, lo - 6), hi + 3)), age: rng.int(18, 50), card: false, cardUntil: null, titles: 0 });
   }
   const withCard = settings.start === "tourcard";
   players.push({
@@ -680,18 +720,18 @@ function endSeason(state: CareerState, rng: Rng): void {
     if (p.human) notes.push("Tour Card obtenue grâce au classement du Challenge Tour.");
   }
   // Évolution des joueurs : progression des jeunes, déclin avec l'âge, retraites remplacées par des jeunes.
-  const range = DIFFICULTIES[state.settings.difficulty];
+  const range = rangesOf(state.settings);
   const taken = new Set(state.players.map((p) => p.name.toLowerCase()));
   for (const p of state.players) {
     if (p.human || p.retired) continue;
     p.age++;
     const drift = p.age < 25 ? rng.normal(1.6, 1.4) : p.age < 33 ? rng.normal(0.3, 1.2) : p.age < 41 ? rng.normal(-0.5, 1.2) : rng.normal(-1.3, 1.2);
-    p.rating = round1(clamp(p.rating + drift, range.amateurs[0] - 8, range.card[1] + 3));
+    p.rating = round1(clamp(p.rating + drift, Math.max(MIN_RATING, range.amateurs[0] - 8), range.card[1] + 3));
     if (!p.card && (p.age >= 52 || (p.age >= 45 && rng.next() < 0.25))) {
       p.retired = true;
       const id = generateIdentity(rng, taken);
       const [lo, hi] = range.amateurs;
-      state.players.push({ id: `p${state.players.length + 1}`, ...id, rating: round1(clamp(rng.normal((lo + hi) / 2 - 3, (hi - lo) / 4), lo - 6, hi)), age: rng.int(17, 22), card: false, cardUntil: null, titles: 0 });
+      state.players.push({ id: `p${state.players.length + 1}`, ...id, rating: round1(clamp(rng.normal((lo + hi) / 2 - 3, (hi - lo) / 4), Math.max(MIN_RATING, lo - 6), hi)), age: rng.int(17, 22), card: false, cardUntil: null, titles: 0 });
     }
   }
   state.seasons.push(summary);

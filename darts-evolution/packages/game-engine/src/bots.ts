@@ -13,9 +13,10 @@ import { describeGame } from "./view.js";
  */
 
 /** Niveaux proposés : moyenne visée sur 3 fléchettes. */
-export const BOT_AVERAGES = [20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 110, 120, 135, 150, 170] as const;
+export const BOT_AVERAGES = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 110, 120, 135, 150, 170] as const;
 
 export function botLevelLabel(average: number): string {
+  if (average < 20) return "Initiation";
   if (average < 35) return "Débutant";
   if (average < 50) return "Loisir";
   if (average < 65) return "Club";
@@ -77,24 +78,42 @@ export function throwAt(target: BoardPoint, sigma: number, rng: () => number): B
  * possible est de 167 (leg en 9 fléchettes) : le niveau 170 joue au maximum.
  */
 const SIGMAS: Record<number, number> = {
-  20: 0.26139, 25: 0.20192, 30: 0.17042, 35: 0.14411, 40: 0.12188, 45: 0.10931, 50: 0.09575, 55: 0.08666,
+  10: 0.43479, 15: 0.33154, 20: 0.26139, 25: 0.20192, 30: 0.17042, 35: 0.14411, 40: 0.12188, 45: 0.10931, 50: 0.09575, 55: 0.08666,
   60: 0.07949, 65: 0.07254, 70: 0.06549, 75: 0.06015, 80: 0.05522, 85: 0.05072, 90: 0.04614, 95: 0.04139,
   100: 0.03859, 110: 0.03137, 120: 0.02648, 135: 0.02021, 150: 0.01461, 170: 0.003,
 };
 
+/**
+ * Même calibration en sortie simple : sans double à trouver, un bot finit bien plus vite, sa
+ * dispersion doit donc être plus grande pour que sa moyenne réelle reste celle de son niveau.
+ */
+const SIGMAS_SINGLE: Record<number, number> = {
+  10: 0.94043, 15: 0.69263, 20: 0.50753, 25: 0.38643, 30: 0.29016, 35: 0.20642, 40: 0.1583, 45: 0.12974, 50: 0.1127,
+  55: 0.09968, 60: 0.09019, 65: 0.08193, 70: 0.07539, 75: 0.06874, 80: 0.06207, 85: 0.05633, 90: 0.05172, 95: 0.04671,
+  100: 0.0419, 110: 0.03464, 120: 0.02803, 135: 0.02073, 150: 0.0149, 170: 0.002,
+};
+
 /** Dispersion d'un bot pour une moyenne visée sur 3 fléchettes (interpolée entre les niveaux). */
-export function botSigma(average: number): number {
-  const levels = Object.keys(SIGMAS).map(Number).sort((x, y) => x - y);
+export function botSigma(average: number, outRule: InOutRule = "double"): number {
+  const table = outRule === "single" ? SIGMAS_SINGLE : SIGMAS;
+  const levels = Object.keys(table).map(Number).sort((x, y) => x - y);
   const avg = Math.min(levels[levels.length - 1]!, Math.max(levels[0]!, average));
   for (let i = 1; i < levels.length; i++) {
     const lo = levels[i - 1]!;
     const hi = levels[i]!;
     if (avg <= hi) {
       const t = (avg - lo) / (hi - lo);
-      return Math.exp(Math.log(SIGMAS[lo]!) + t * (Math.log(SIGMAS[hi]!) - Math.log(SIGMAS[lo]!)));
+      return Math.exp(Math.log(table[lo]!) + t * (Math.log(table[hi]!) - Math.log(table[lo]!)));
     }
   }
-  return SIGMAS[levels[levels.length - 1]!]!;
+  return table[levels[levels.length - 1]!]!;
+}
+
+/** Règle de sortie de la partie (la calibration en dépend). */
+function outRuleOf(state: GameState): InOutRule {
+  if (state.mode === "x01") return (state.config as X01Config).outRule;
+  if (state.mode === "checkout_training") return (state.config as CheckoutTrainingConfig).outRule;
+  return "double";
 }
 
 // ---------- Choix de la cible ----------
@@ -197,5 +216,5 @@ export function chooseAim(state: GameState): Aim {
 /** Prochaine fléchette d'un bot de moyenne `average` dans la partie `state`. */
 export function botThrow(state: GameState, average: number, rng: () => number = Math.random): BotDart & { aim: Aim } {
   const aim = chooseAim(state);
-  return { ...throwAt(aimPoint(aim), botSigma(average), rng), aim };
+  return { ...throwAt(aimPoint(aim), botSigma(average, outRuleOf(state)), rng), aim };
 }

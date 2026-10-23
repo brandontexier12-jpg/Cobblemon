@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useAsync } from "../lib/hooks";
 import { useAppState } from "../lib/app-state";
@@ -8,12 +8,21 @@ import { Button, inputClass, PlayerAvatar, useUi } from "./ui";
 
 /** Sélection rapide et ordonnée des joueurs (l'ordre de sélection est l'ordre de jeu). */
 export function PlayerPicker({ selected, onChange, max = 8 }: { selected: string[]; onChange: (ids: string[]) => void; max?: number }) {
-  const { players, refreshPlayers } = useAppState();
+  const { players, refreshPlayers, activePlayerId } = useAppState();
   const { toast } = useUi();
   const [guests, setGuests] = useState<Player[]>([]);
   const [newName, setNewName] = useState("");
   const botLevels = useAsync(() => api.get<{ average: number; label: string; name: string }[]>("/api/bots"), []);
-  const [botAverage, setBotAverage] = useState(60);
+  const [botAverage, setBotAverage] = useState(25);
+  // Niveau conseillé d'après la moyenne du profil actif (tant que le joueur n'a rien choisi lui-même).
+  const recommended = useAsync(
+    () => api.get<{ average: number; playerAverage: number | null }>(`/api/bots/recommended${activePlayerId ? `?playerId=${activePlayerId}` : ""}`),
+    [activePlayerId],
+  );
+  const botTouched = useRef(false);
+  useEffect(() => {
+    if (recommended.data && !botTouched.current) setBotAverage(recommended.data.average);
+  }, [recommended.data]);
   const all = [...players, ...guests];
   const toggle = (id: string) => {
     if (selected.includes(id)) onChange(selected.filter((s) => s !== id));
@@ -102,7 +111,10 @@ export function PlayerPicker({ selected, onChange, max = 8 }: { selected: string
         <label className="text-sm text-ink-300" htmlFor="bot-level">
           Adversaire bot
         </label>
-        <select id="bot-level" className={`${inputClass} w-auto min-w-48 flex-1 sm:flex-none`} value={botAverage} onChange={(e) => setBotAverage(Number(e.target.value))}>
+        <select id="bot-level" className={`${inputClass} w-auto min-w-48 flex-1 sm:flex-none`} value={botAverage} onChange={(e) => {
+            botTouched.current = true;
+            setBotAverage(Number(e.target.value));
+          }}>
           {(botLevels.data ?? []).map((l) => (
             <option key={l.average} value={l.average}>
               {l.name} — {l.label} (moyenne {l.average === 170 ? "≈ 167, le maximum" : l.average})
@@ -112,6 +124,13 @@ export function PlayerPicker({ selected, onChange, max = 8 }: { selected: string
         <Button icon="plus" onClick={addBot} disabled={!botLevels.data}>
           Ajouter le bot
         </Button>
+        {recommended.data && (
+          <span className="basis-full px-1 text-xs text-ink-400">
+            {recommended.data.playerAverage !== null
+              ? `Votre moyenne X01 : ${recommended.data.playerAverage.toLocaleString("fr-FR")} — bot conseillé : ${recommended.data.average}. Le niveau d'un bot est sa moyenne réelle sur 3 fléchettes, sorties comprises.`
+              : "Bot conseillé : 25 (jouez quelques parties de X01 pour un conseil adapté à votre moyenne)."}
+          </span>
+        )}
       </div>
       {selected.length > 1 && (
         <div className="rounded-xl border border-ink-700 bg-ink-900 p-3">

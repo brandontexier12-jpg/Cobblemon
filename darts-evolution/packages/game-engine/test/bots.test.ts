@@ -25,20 +25,23 @@ function botMatch(state: GameState, averages: number[], seed: number, maxDarts =
 
 describe("bots", () => {
   it("propose une vingtaine de niveaux de 20 à 170 de moyenne", () => {
-    expect(BOT_AVERAGES[0]).toBe(20);
+    expect(BOT_AVERAGES[0]).toBe(10);
     expect(BOT_AVERAGES[BOT_AVERAGES.length - 1]).toBe(170);
     expect(BOT_AVERAGES.length).toBeGreaterThanOrEqual(20);
-    // Plus le niveau est élevé, plus la dispersion est faible.
-    const sigmas = BOT_AVERAGES.map(botSigma);
-    for (let i = 1; i < sigmas.length; i++) expect(sigmas[i]).toBeLessThan(sigmas[i - 1]!);
+    // Plus le niveau est élevé, plus la dispersion est faible ; en sortie simple, elle est plus grande.
+    for (const out of ["double", "single"] as const) {
+      const sigmas = BOT_AVERAGES.map((a) => botSigma(a, out));
+      for (let i = 1; i < sigmas.length; i++) expect(sigmas[i]).toBeLessThan(sigmas[i - 1]!);
+    }
+    for (const a of [20, 40, 60]) expect(botSigma(a, "single")).toBeGreaterThan(botSigma(a, "double"));
   });
 
-  it("atteint en partie la moyenne de son niveau (501, double sortie, sorties comprises)", () => {
-    for (const average of [40, 60, 100, 150]) {
+  it.each(["double", "single"] as const)("atteint en partie la moyenne de son niveau (501, sortie %s, sorties comprises)", (outRule) => {
+    for (const average of [15, 25, 40, 60, 100, 150]) {
       let points = 0;
       let darts = 0;
       for (let g = 0; g < 25; g++) {
-        const { state } = botMatch(newGame("x01", { startScore: 501 }, [ALICE]), [average], average * 100 + g);
+        const { state } = botMatch(newGame("x01", { startScore: 501, outRule }, [ALICE]), [average], average * 100 + g);
         for (const v of state.visits) {
           points += v.points;
           darts += v.darts.length;

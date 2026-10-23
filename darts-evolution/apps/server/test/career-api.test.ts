@@ -51,7 +51,7 @@ describe("mode carrière (API)", () => {
     const app = await open();
     const [alice] = await createPlayers(app, "Alice");
     const options = await app.json("GET", "/api/careers/options");
-    expect(options.difficulties.map((d: any) => d.id)).toEqual(["debutant", "amateur", "semi_pro", "pro", "legende"]);
+    expect(options.difficulties.map((d: any) => d.id)).toEqual(["sur_mesure", "debutant", "amateur", "semi_pro", "pro", "legende"]);
     expect(options.countries.find((c: any) => c.code === "FRA")).toMatchObject({ name: "France", flag: "🇫🇷" });
 
     const career = await app.json("POST", "/api/careers", { playerId: alice, difficulty: "debutant", outRule: "single", matchLength: "courte", start: "qschool" });
@@ -132,6 +132,15 @@ describe("mode carrière (API)", () => {
     expect(renamed).toMatchObject({ name: "Luke Littler", nickname: "The Nuke" });
     expect((await app.request("PATCH", `/api/careers/${career.id}/players/${circuit[1].id}`, { name: "Luke Littler" })).statusCode).toBe(400);
     expect((await app.json("GET", `/api/careers/${career.id}/rankings?category=pdc`)).rows[0].name).toBe("Luke Littler");
+
+    // Réglages en cours de carrière : passage en Débutant, le circuit est recalculé.
+    const topBefore = (await app.json("GET", `/api/careers/${career.id}/players`)).find((p: any) => !p.human).rating;
+    const changed = await app.json("PATCH", `/api/careers/${career.id}/settings`, { difficulty: "debutant", outRule: "single", matchLength: "courte" });
+    expect(changed.settings).toMatchObject({ difficulty: "debutant", outRule: "single", matchLength: "courte", ranges: { card: [28, 52], amateurs: [15, 32] } });
+    const topAfter = (await app.json("GET", `/api/careers/${career.id}/players`)).find((p: any) => !p.human).rating;
+    expect(topBefore).toBeGreaterThan(95);
+    expect(topAfter).toBeLessThan(56);
+    expect((await app.request("PATCH", `/api/careers/${career.id}/settings`, { difficulty: "facile" })).statusCode).toBe(400);
 
     const history = await app.json("GET", `/api/careers/${career.id}/history`);
     expect(history).toMatchObject({ titles: [], seasons: [] });

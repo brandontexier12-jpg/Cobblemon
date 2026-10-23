@@ -1,4 +1,4 @@
-import { MODES, OPTION_SCHEMAS, suggestCheckouts, type GameModeId } from "@darts-evolution/game-engine";
+import { BOT_AVERAGES, MODES, OPTION_SCHEMAS, suggestCheckouts, type GameModeId } from "@darts-evolution/game-engine";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireAdmin, SESSION_COOKIE, type AppContext } from "../context.js";
@@ -29,6 +29,18 @@ export function registerGameRoutes(app: FastifyInstance, ctx: AppContext): void 
   });
   // ---------- Bots (adversaires virtuels, créés à la première utilisation) ----------
   app.get("/api/bots", async () => ctx.players.botLevels());
+  /**
+   * Niveau de bot conseillé pour un joueur : le plus proche sans dépasser sa moyenne X01 (un bot à sa
+   * portée) ; 25 tant que sa moyenne n'est pas connue (au moins 30 fléchettes en X01).
+   */
+  app.get("/api/bots/recommended", async (req) => {
+    const q = z.object({ playerId: z.string().uuid().optional() }).parse(req.query);
+    const x01 = q.playerId ? ctx.stats.summary({ playerId: q.playerId }).summary.x01 : null;
+    const playerAverage = x01 && x01.darts >= 30 ? x01.average3 : null;
+    const levels = [...BOT_AVERAGES] as number[];
+    const average = playerAverage === null ? 25 : (levels.filter((l) => l <= playerAverage).pop() ?? levels[0]!);
+    return { average, playerAverage };
+  });
   app.post("/api/bots/:average", async (req) => {
     const { average } = z.object({ average: z.coerce.number().int() }).parse(req.params);
     return ctx.players.bot(average);
