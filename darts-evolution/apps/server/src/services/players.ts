@@ -111,12 +111,28 @@ export class PlayerService {
   }
 
   /** Joueur invité : utilisable immédiatement, masqué des classements. */
-  createGuest(name?: string): Player {
-    const count = this.db.get<{ n: number }>("SELECT COUNT(*) AS n FROM players WHERE is_guest = 1")?.n ?? 0;
+  /**
+   * Invité sans nom : « Invité N » avec le plus petit numéro libre, c'est-à-dire ni déjà choisi
+   * pour la partie en préparation (`taken`), ni porté par un invité d'une partie en cours. Les
+   * anciens invités et les bots ne comptent pas : la première partie avec un invité redonne « Invité 1 ».
+   */
+  createGuest(name?: string, taken: string[] = []): Player {
+    let label = name?.trim();
+    if (!label) {
+      const busy = new Set(taken.map((n) => n.trim().toLowerCase()));
+      const playing = this.db.all<{ name: string }>(
+        `SELECT DISTINCT p.name FROM players p JOIN match_players mp ON mp.player_id = p.id JOIN matches m ON m.id = mp.match_id
+         WHERE p.is_guest = 1 AND p.bot_average IS NULL AND m.status = 'active'`,
+      );
+      for (const r of playing) busy.add(r.name.toLowerCase());
+      let n = 1;
+      while (busy.has(`invité ${n}`)) n++;
+      label = `Invité ${n}`;
+    }
     const id = randomUUID();
     this.db.run(
       `INSERT INTO players (id, name, avatar, color, level, is_guest, created_at) VALUES ($id, $name, '👤', '#9ca3af', 'debutant', 1, $at)`,
-      { $id: id, $name: (name?.trim() || `Invité ${count + 1}`).slice(0, 32), $at: nowIso() },
+      { $id: id, $name: label.slice(0, 32), $at: nowIso() },
     );
     return this.get(id);
   }

@@ -37,6 +37,23 @@ describe("joueurs", () => {
     expect(invalid.statusCode).toBe(400);
     expect(invalid.json().message).toMatch(/pseudo est obligatoire/);
   });
+
+  it("numérote les invités au plus petit numéro libre (anciens invités et bots ne comptent pas)", async () => {
+    const app = await open();
+    const [alice] = await createPlayers(app, "Alice");
+    await app.json("POST", "/api/bots/60");
+    const first = await app.json("POST", "/api/players/guest", {});
+    expect(first.name).toBe("Invité 1");
+    // Partie avec l'invité, terminée : le prochain invité reprend le numéro 1.
+    const { match } = await app.json("POST", "/api/matches", { mode: "x01", options: { startScore: 101 }, playerIds: [alice, first.id] });
+    expect((await app.json("POST", "/api/players/guest", {})).name).toBe("Invité 2"); // « Invité 1 » joue encore
+    await throwDarts(app, match.id, "T20", "S1", "D20");
+    expect((await app.json("GET", `/api/matches/${match.id}`)).match.status).toBe("finished");
+    expect((await app.json("POST", "/api/players/guest", {})).name).toBe("Invité 1");
+    // Deux invités pour la même partie : le second prend le 2.
+    expect((await app.json("POST", "/api/players/guest", { taken: ["Invité 1"] })).name).toBe("Invité 2");
+    expect((await app.json("POST", "/api/players/guest", { name: "Tonton" })).name).toBe("Tonton");
+  });
 });
 
 describe("partie X01 complète", () => {

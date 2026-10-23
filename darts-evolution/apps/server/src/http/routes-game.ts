@@ -24,8 +24,8 @@ export function registerGameRoutes(app: FastifyInstance, ctx: AppContext): void 
   });
   app.post("/api/players", async (req, reply) => reply.code(201).send(ctx.players.create(req.body)));
   app.post("/api/players/guest", async (req, reply) => {
-    const body = z.object({ name: z.string().max(32).optional() }).parse(req.body ?? {});
-    return reply.code(201).send(ctx.players.createGuest(body.name));
+    const body = z.object({ name: z.string().max(32).optional(), taken: z.array(z.string().max(32)).max(16).optional() }).parse(req.body ?? {});
+    return reply.code(201).send(ctx.players.createGuest(body.name, body.taken));
   });
   // ---------- Bots (adversaires virtuels, créés à la première utilisation) ----------
   app.get("/api/bots", async () => ctx.players.botLevels());

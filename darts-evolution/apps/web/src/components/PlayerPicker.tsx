@@ -37,7 +37,9 @@ export function PlayerPicker({ selected, onChange, max = 8 }: { selected: string
   };
   const addGuest = async () => {
     try {
-      const guest = await api.post<Player>("/api/players/guest", { name: newName || undefined });
+      // Numéro libre : les invités déjà choisis pour cette partie gardent le leur.
+      const taken = all.filter((p) => p.isGuest && selected.includes(p.id)).map((p) => p.name);
+      const guest = await api.post<Player>("/api/players/guest", { name: newName || undefined, taken });
       setGuests((g) => [...g, guest]);
       setNewName("");
       if (selected.length < max) onChange([...selected, guest.id]);
