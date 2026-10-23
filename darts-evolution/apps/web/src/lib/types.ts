@@ -13,6 +13,8 @@ export interface Player {
   favoriteDouble: number | null;
   /** Bot : moyenne visée sur 3 fléchettes. */
   botAverage: number | null;
+  /** Photo de profil (null : avatar emoji). */
+  photo: string | null;
   createdAt: string;
   archivedAt: string | null;
 }
@@ -25,6 +27,7 @@ export interface MatchPlayer {
   position: number;
   isGuest: boolean;
   botAverage: number | null;
+  photo: string | null;
 }
 
 export interface MatchMeta {

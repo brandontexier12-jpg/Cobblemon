@@ -67,7 +67,7 @@ export function HomePage() {
         <div className="flex flex-wrap items-center gap-4">
           {player ? (
             <>
-              <PlayerAvatar avatar={player.avatar} color={player.color} size={64} />
+              <PlayerAvatar avatar={player.avatar} color={player.color} photo={player.photo} size={64} />
               <div className="min-w-0 flex-1">
                 <div className="text-sm uppercase tracking-wider text-ink-300">Profil actif</div>
                 <h1 className="font-display truncate text-4xl font-bold uppercase">{player.name}</h1>

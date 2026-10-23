@@ -288,7 +288,17 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
   );
 }
 
-export function PlayerAvatar({ avatar, color, size = 40 }: { avatar: string; color: string; size?: number }) {
+/** Avatar d'un joueur : sa photo si elle existe (cerclée de sa couleur), sinon son emoji. */
+export function PlayerAvatar({ avatar, color, photo, size = 40 }: { avatar: string; color: string; photo?: string | null; size?: number }) {
+  const [broken, setBroken] = useState<string | null>(null);
+  if (photo && broken !== photo) {
+    return (
+      <span className="relative inline-flex shrink-0 overflow-hidden rounded-full" style={{ width: size, height: size }} aria-hidden="true">
+        <img src={photo} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" onError={() => setBroken(photo)} />
+        <span className="absolute inset-0 rounded-full" style={{ boxShadow: `inset 0 0 0 ${size >= 48 ? 3 : 2}px ${color}` }} />
+      </span>
+    );
+  }
   return (
     <span
       className="inline-flex shrink-0 items-center justify-center rounded-full"

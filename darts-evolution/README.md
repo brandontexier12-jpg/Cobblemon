@@ -111,7 +111,8 @@ ratés dehors / dedans / à côté, évolution par semaine et constats. Formules
 **Progression** : records personnels, niveaux (XP), badges, objectifs hebdomadaires — calculés uniquement
 à partir des données réelles.
 
-**Joueurs** : profils (pseudo, avatar, couleur, niveau, double favori), invités, profil actif, classement,
+**Joueurs** : profils (pseudo, **photo de profil** recadrée dans l'application — galerie ou appareil photo,
+réduite en petit JPEG et incluse dans les sauvegardes —, avatar, couleur, niveau, double favori), invités, profil actif, classement,
 comparaison face-à-face, suppression avec confirmation (historique conservé).
 
 **Multijoueur local** : chaque partie a un **code de salle** ; d'autres appareils la rejoignent comme

@@ -7,6 +7,7 @@ import { fmtDate, fmtNumber, fmtPercent, LEVEL_LABEL } from "../lib/format";
 import { useAsync } from "../lib/hooks";
 import type { MatchListItem, Player, StatsSummary, X01Summary } from "../lib/types";
 import { MatchLine } from "./Home";
+import { PhotoField, type PhotoChange } from "../components/PhotoField";
 
 const AVATARS = ["🎯", "🦊", "🐺", "🦅", "🐯", "🦁", "🐉", "⚡", "🔥", "🚀", "👑", "🎲", "🏹", "🐻", "🦈", "⭐"];
 const COLORS = ["#ff6b1a", "#3987e5", "#199e70", "#c98500", "#d55181", "#9085e9", "#e66767", "#a1a1aa"];
@@ -35,22 +36,34 @@ function PlayerForm({ initial, onSaved, onCancel }: { initial?: Player; onSaved:
     level: initial?.level ?? "debutant",
     favoriteDouble: initial?.favoriteDouble ?? null,
   });
+  const [photo, setPhoto] = useState<PhotoChange>(undefined);
+  const [saving, setSaving] = useState(false);
   const save = async () => {
+    setSaving(true);
     try {
+      let id = initial?.id;
       if (initial) await api.patch(`/api/players/${initial.id}`, form);
       else {
         const created = await api.post<Player>("/api/players", form);
+        id = created.id;
         if (!activePlayerId) await setActivePlayer(created.id);
       }
+      if (id && photo instanceof Blob) await api.upload(`/api/players/${id}/photo`, photo);
+      else if (id && photo === null) await api.del(`/api/players/${id}/photo`);
       onSaved();
     } catch (e) {
       toast((e as Error).message, "critical");
+    } finally {
+      setSaving(false);
     }
   };
   return (
     <div className="space-y-4">
       <Field label="Pseudo">
         <input className={inputClass} value={form.name} maxLength={32} autoFocus onChange={(e) => setForm({ ...form, name: e.target.value })} />
+      </Field>
+      <Field label="Photo de profil">
+        <PhotoField avatar={form.avatar} color={form.color} current={initial?.photo ?? null} value={photo} onChange={setPhoto} />
       </Field>
       <Field label="Avatar">
         <div className="flex flex-wrap gap-1.5">
@@ -85,8 +98,8 @@ function PlayerForm({ initial, onSaved, onCancel }: { initial?: Player; onSaved:
         <Button variant="ghost" onClick={onCancel}>
           Annuler
         </Button>
-        <Button variant="primary" onClick={save} disabled={!form.name.trim()}>
-          Enregistrer
+        <Button variant="primary" onClick={save} disabled={!form.name.trim() || saving}>
+          {saving ? "Enregistrement…" : "Enregistrer"}
         </Button>
       </div>
     </div>
@@ -200,7 +213,7 @@ export function PlayersPage() {
               return (
                 <Card key={p.id}>
                   <div className="flex items-center gap-3">
-                    <PlayerAvatar avatar={p.avatar} color={p.color} size={52} />
+                    <PlayerAvatar avatar={p.avatar} color={p.color} photo={p.photo} size={52} />
                     <div className="min-w-0 flex-1">
                       <Link to={`/joueurs/${p.id}`} className="font-display block truncate text-2xl font-bold hover:text-brand-400">
                         {p.name}
@@ -271,7 +284,7 @@ export function PlayersPage() {
                     <td className="font-display py-2 text-lg font-bold text-brand-400">{i + 1}</td>
                     <td>
                       <span className="flex items-center gap-2">
-                        <PlayerAvatar avatar={r.player.avatar} color={r.player.color} size={28} />
+                        <PlayerAvatar avatar={r.player.avatar} color={r.player.color} photo={r.player.photo} size={28} />
                         {r.player.name}
                       </span>
                     </td>
@@ -343,7 +356,7 @@ export function PlayerDetailPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-4">
-        <PlayerAvatar avatar={p.avatar} color={p.color} size={72} />
+        <PlayerAvatar avatar={p.avatar} color={p.color} photo={p.photo} size={72} />
         <div>
           <h1 className="font-display text-4xl font-bold uppercase">{p.name}</h1>
           <p className="text-ink-300">

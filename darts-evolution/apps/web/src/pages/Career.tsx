@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
-import { Badge, Button, Card, EmptyState, ErrorBox, Field, inputClass, Modal, PageHeader, Segmented, Spinner, StatTile, Toggle, useUi } from "../components/ui";
+import { Badge, Button, Card, EmptyState, ErrorBox, Field, inputClass, Modal, PageHeader, PlayerAvatar, Segmented, Spinner, StatTile, Toggle, useUi } from "../components/ui";
 import { ApiError, api } from "../lib/api";
 import { useAppState } from "../lib/app-state";
 import { fmtDateTime } from "../lib/format";
@@ -100,7 +100,14 @@ interface CareerView {
   name: string;
   season: number;
   settings: { outRule: "single" | "double"; matchLength: "reelle" | "raccourcie" | "courte"; light: boolean; difficultyLabel: string };
-  me: PlayerInfo & { cardUntil: number | null; money: number; seasonMoney: number; proTourRank: number | null; challengeRank: number | null };
+  me: PlayerInfo & {
+    cardUntil: number | null;
+    money: number;
+    seasonMoney: number;
+    proTourRank: number | null;
+    challengeRank: number | null;
+    profile: { avatar: string; color: string; photo: string | null } | null;
+  };
   pending: PendingView | null;
   run: RunView | null;
   feed: { event: string; winner: string; flag: string; final: string; runnerUp: string }[];
@@ -438,8 +445,13 @@ function NextStep({ career, onChange }: { career: CareerView; onChange: () => vo
         <EventHeading event={p.event} extra={<span className="font-display text-xl text-brand-300">· {p.round}</span>} />
         <div className="mt-4 grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
           <div className="rounded-xl bg-ink-900/70 p-3">
-            <Name side={{ name: career.me.name, flag: career.me.flag, human: true }} className="font-display text-2xl" />
-            <p className="text-sm text-ink-400">{career.me.rank ? `#${career.me.rank} mondial` : "non classé"}</p>
+            <div className="flex items-center gap-3">
+              {career.me.profile && <PlayerAvatar avatar={career.me.profile.avatar} color={career.me.profile.color} photo={career.me.profile.photo} size={48} />}
+              <div className="min-w-0">
+                <Name side={{ name: career.me.name, flag: career.me.flag, human: true }} className="font-display text-2xl" />
+                <p className="text-sm text-ink-400">{career.me.rank ? `#${career.me.rank} mondial` : "non classé"}</p>
+              </div>
+            </div>
           </div>
           <span className="text-center font-display text-3xl font-bold text-brand-500">VS</span>
           <div className="rounded-xl bg-ink-900/70 p-3 sm:text-right">

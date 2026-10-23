@@ -78,7 +78,7 @@ export function PlayerPicker({ selected, onChange, max = 8 }: { selected: string
               aria-pressed={index >= 0}
               className={`press flex min-h-12 items-center gap-2 rounded-full border py-1 pl-1 pr-3 ${index >= 0 ? "border-brand-500 bg-brand-500/15" : "border-ink-600 bg-ink-900 hover:border-ink-500"}`}
             >
-              <PlayerAvatar avatar={p.avatar} color={p.color} size={36} />
+              <PlayerAvatar avatar={p.avatar} color={p.color} photo={p.photo} size={36} />
               <span className="text-ink-100">{p.name}</span>
               {index >= 0 && <span className="font-display rounded-full bg-brand-500 px-2 text-sm font-bold text-ink-950">{index + 1}</span>}
             </button>

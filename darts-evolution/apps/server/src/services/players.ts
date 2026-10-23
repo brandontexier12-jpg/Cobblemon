@@ -16,6 +16,8 @@ export interface Player {
   favoriteDouble: number | null;
   /** Bot : moyenne visée sur 3 fléchettes (null pour un joueur humain). */
   botAverage: number | null;
+  /** Adresse de la photo de profil (null : avatar emoji). */
+  photo: string | null;
   createdAt: string;
   archivedAt: string | null;
 }
@@ -31,6 +33,23 @@ interface PlayerRow {
   bot_average: number | null;
   created_at: string;
   archived_at: string | null;
+  photo_at: string | null;
+}
+
+/** Adresse versionnée de la photo d'un joueur (le cache du navigateur suit les changements). */
+export function photoUrl(playerId: string, updatedAt: string | null | undefined): string | null {
+  return updatedAt ? `/api/players/${playerId}/photo?v=${Date.parse(updatedAt).toString(36)}` : null;
+}
+
+const SELECT_PLAYERS = "SELECT players.*, ph.updated_at AS photo_at FROM players LEFT JOIN player_photos ph ON ph.player_id = players.id";
+
+/** Formats d'image acceptés, reconnus à leur signature (jamais SVG ni autre format actif). */
+const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+function photoMime(buf: Buffer): string | null {
+  if (buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
+  if (buf.length > 8 && buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png";
+  if (buf.length > 12 && buf.subarray(0, 4).toString("ascii") === "RIFF" && buf.subarray(8, 12).toString("ascii") === "WEBP") return "image/webp";
+  return null;
 }
 
 const toPlayer = (r: PlayerRow): Player => ({
@@ -42,6 +61,7 @@ const toPlayer = (r: PlayerRow): Player => ({
   isGuest: r.is_guest === 1,
   favoriteDouble: r.favorite_double,
   botAverage: r.bot_average ?? null,
+  photo: photoUrl(r.id, r.photo_at),
   createdAt: r.created_at,
   archivedAt: r.archived_at,
 });
@@ -64,12 +84,12 @@ export class PlayerService {
       // Les bots du mode carrière n'apparaissent que dans leur carrière.
       "career_id IS NULL",
     ].filter(Boolean);
-    const sql = `SELECT * FROM players ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY is_guest, name COLLATE NOCASE`;
+    const sql = `${SELECT_PLAYERS} ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY is_guest, name COLLATE NOCASE`;
     return this.db.all<PlayerRow>(sql).map(toPlayer);
   }
 
   get(id: string): Player {
-    const row = this.db.get<PlayerRow>("SELECT * FROM players WHERE id = $id", { $id: id });
+    const row = this.db.get<PlayerRow>(`${SELECT_PLAYERS} WHERE players.id = $id`, { $id: id });
     if (!row) throw notFound("Joueur");
     return toPlayer(row);
   }
@@ -135,6 +155,34 @@ export class PlayerService {
       { $id: id, $name: name, $avatar: info.avatar, $color: hslHex(hue, 70, 55), $a: average, $career: careerId, $at: nowIso() },
     );
     return this.get(id);
+  }
+
+  /** Enregistre la photo de profil (image déjà recadrée et réduite par l'application). */
+  setPhoto(id: string, data: Buffer): Player {
+    const player = this.get(id);
+    if (player.botAverage !== null) throw badRequest("Un bot n'a pas de photo de profil.");
+    if (data.length === 0) throw badRequest("Image vide.");
+    if (data.length > PHOTO_MAX_BYTES) throw badRequest("Image trop lourde (2 Mo au maximum).");
+    const mime = photoMime(data);
+    if (!mime) throw badRequest("Format d'image non pris en charge : JPEG, PNG ou WebP.");
+    this.db.run(
+      `INSERT INTO player_photos (player_id, mime, data, updated_at) VALUES ($id, $mime, $data, $at)
+       ON CONFLICT(player_id) DO UPDATE SET mime = excluded.mime, data = excluded.data, updated_at = excluded.updated_at`,
+      { $id: id, $mime: mime, $data: data, $at: nowIso() },
+    );
+    return this.get(id);
+  }
+
+  removePhoto(id: string): Player {
+    this.get(id);
+    this.db.run("DELETE FROM player_photos WHERE player_id = $id", { $id: id });
+    return this.get(id);
+  }
+
+  photo(id: string): { mime: string; data: Uint8Array } {
+    const row = this.db.get<{ mime: string; data: Uint8Array }>("SELECT mime, data FROM player_photos WHERE player_id = $id", { $id: id });
+    if (!row) throw notFound("Photo");
+    return row;
   }
 
   /** Niveaux de bots proposés. */

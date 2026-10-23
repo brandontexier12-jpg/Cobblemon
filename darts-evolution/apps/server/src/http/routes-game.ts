@@ -2,7 +2,7 @@ import { MODES, OPTION_SCHEMAS, suggestCheckouts, type GameModeId } from "@darts
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireAdmin, SESSION_COOKIE, type AppContext } from "../context.js";
-import { unauthorized } from "../errors.js";
+import { badRequest, unauthorized } from "../errors.js";
 import { CommandInput } from "../services/matches.js";
 
 const id = z.object({ id: z.string().uuid() });
@@ -34,6 +34,24 @@ export function registerGameRoutes(app: FastifyInstance, ctx: AppContext): void 
     return ctx.players.bot(average);
   });
   app.get("/api/players/:id", async (req) => ctx.players.get(id.parse(req.params).id));
+
+  // Photo de profil : image envoyée telle quelle (déjà recadrée et réduite par l'application).
+  app.get("/api/players/:id/photo", async (req, reply) => {
+    const photo = ctx.players.photo(id.parse(req.params).id);
+    // L'adresse change à chaque nouvelle photo (?v=…) : le navigateur peut la garder en cache.
+    return reply.header("content-type", photo.mime).header("cache-control", "private, max-age=31536000, immutable").send(Buffer.from(photo.data));
+  });
+  app.post("/api/players/:id/photo", { bodyLimit: 3 * 1024 * 1024 }, async (req) => {
+    if (!Buffer.isBuffer(req.body)) throw badRequest("Envoyez l'image en application/octet-stream.");
+    const player = ctx.players.setPhoto(id.parse(req.params).id, req.body);
+    ctx.matches.clearCache(); // les parties en cours affichent la nouvelle photo
+    return player;
+  });
+  app.delete("/api/players/:id/photo", async (req) => {
+    const player = ctx.players.removePhoto(id.parse(req.params).id);
+    ctx.matches.clearCache();
+    return player;
+  });
   app.patch("/api/players/:id", async (req) => ctx.players.update(id.parse(req.params).id, req.body));
   app.delete("/api/players/:id", async (req) => {
     const q = z.object({ permanent: z.coerce.boolean().optional() }).parse(req.query);

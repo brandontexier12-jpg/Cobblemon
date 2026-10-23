@@ -116,7 +116,7 @@ export function KillerDraw({ players, numbers, onDone, voice }: { players: Match
       <div className="flex min-h-16 items-center gap-3">
         {!done ? (
           <>
-            <PlayerAvatar avatar={current.avatar} color={current.color} size={44} />
+            <PlayerAvatar avatar={current.avatar} color={current.color} photo={current.photo} size={44} />
             <span className="font-display text-3xl font-bold sm:text-4xl">{current.name}</span>
             {landed.includes(step) && <span className="font-display animate-pop text-5xl font-bold text-brand-400">{numbers[step]}</span>}
           </>
@@ -127,7 +127,7 @@ export function KillerDraw({ players, numbers, onDone, voice }: { players: Match
       <ul className="flex flex-wrap justify-center gap-2">
         {players.map((p, i) => (
           <li key={p.id} className="flex items-center gap-2 rounded-full border border-ink-700 bg-ink-900 py-1 pl-1 pr-3">
-            <PlayerAvatar avatar={p.avatar} color={p.color} size={26} />
+            <PlayerAvatar avatar={p.avatar} color={p.color} photo={p.photo} size={26} />
             <span className="text-sm">{p.name}</span>
             <span className="font-display min-w-6 text-center text-lg font-bold" style={{ color: landed.includes(i) ? p.color : "#52525b" }}>
               {landed.includes(i) ? numbers[i] : "?"}

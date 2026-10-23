@@ -131,6 +131,40 @@ describe("partie X01 complète", () => {
     expect((await app.json("GET", `/api/home?playerId=${a}`)).recent.map((m: any) => m.id)).toEqual([kept.id]);
   });
 
+  it("photo de profil : envoi contrôlé, affichage partout, retrait", async () => {
+    const app = await open();
+    const [a] = await createPlayers(app, "Alice");
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]), Buffer.from("JFIF\0photo de test"), Buffer.from([0xff, 0xd9])]);
+    const octet = { "content-type": "application/octet-stream" };
+    const up = await app.request("POST", `/api/players/${a}/photo`, jpeg, octet);
+    expect(up.statusCode).toBe(200);
+    const url = up.json().photo as string;
+    expect(url).toMatch(new RegExp(`^/api/players/${a}/photo\\?v=[0-9a-z]+$`));
+    const img = await app.request("GET", url);
+    expect(img.headers["content-type"]).toBe("image/jpeg");
+    expect(img.headers["cache-control"]).toContain("immutable");
+    expect(img.rawPayload.equals(jpeg)).toBe(true);
+    // La photo suit le joueur : liste des joueurs, parties.
+    expect((await app.json("GET", "/api/players"))[0].photo).toBe(url);
+    const { match } = await app.json("POST", "/api/matches", { mode: "x01", options: {}, playerIds: [a] });
+    expect(match.players[0].photo).toBe(url);
+
+    // Formats refusés : SVG (actif), texte ; taille limitée.
+    const svg = await app.request("POST", `/api/players/${a}/photo`, Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'), octet);
+    expect(svg.statusCode).toBe(400);
+    expect(svg.json().message).toContain("JPEG, PNG ou WebP");
+    const big = Buffer.concat([jpeg, Buffer.alloc(2.5 * 1024 * 1024)]);
+    expect((await app.request("POST", `/api/players/${a}/photo`, big, octet)).statusCode).toBe(400);
+    expect((await app.request("POST", `/api/players/${a}/photo`, Buffer.alloc(4 * 1024 * 1024), octet)).statusCode).toBe(413);
+    const bot = await app.json("POST", "/api/bots/60");
+    expect((await app.request("POST", `/api/players/${bot.id}/photo`, jpeg, octet)).statusCode).toBe(400);
+
+    // Retrait : retour à l'avatar emoji.
+    expect((await app.json("DELETE", `/api/players/${a}/photo`)).photo).toBeNull();
+    expect((await app.request("GET", `/api/players/${a}/photo`)).statusCode).toBe(404);
+    expect((await app.json("GET", `/api/matches/${match.id}`)).match.players[0].photo).toBeNull();
+  });
+
   it("idempotence des commandes et conflit de version", async () => {
     const app = await open();
     const [a] = await createPlayers(app, "Alice");
@@ -286,7 +320,7 @@ describe("administration et sécurité", () => {
   it("renvoie des en-têtes de sécurité et une santé exploitable", async () => {
     const app = await open();
     const res = await app.request("GET", "/api/health");
-    expect(res.json()).toMatchObject({ status: "ok", database: "ok", schemaVersion: 4 });
+    expect(res.json()).toMatchObject({ status: "ok", database: "ok", schemaVersion: 5 });
     expect(res.headers["x-content-type-options"]).toBe("nosniff");
     expect((await app.request("GET", "/api/inexistant")).statusCode).toBe(404);
   });

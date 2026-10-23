@@ -22,7 +22,7 @@ import { isValidDart, type Dart } from "@darts-evolution/shared";
 import { z } from "zod";
 import { nowIso, parseJson, type Database } from "../db/database.js";
 import { AppError, badRequest, conflict, notFound } from "../errors.js";
-import type { PlayerService } from "./players.js";
+import { photoUrl, type PlayerService } from "./players.js";
 
 export type MatchStatus = "active" | "finished" | "abandoned";
 export type InputMode = "manual" | "autodarts";
@@ -74,6 +74,8 @@ export interface MatchPlayer {
   isGuest: boolean;
   /** Bot : moyenne visée (null pour un joueur humain). */
   botAverage: number | null;
+  /** Photo de profil (null : avatar emoji). */
+  photo: string | null;
 }
 
 export interface MatchMeta {
@@ -304,9 +306,11 @@ export class MatchService extends EventEmitter {
         is_guest: number | null;
         bot_average: number | null;
         current_name: string | null;
+        photo_at: string | null;
       }>(
-        `SELECT mp.player_id, mp.name, mp.position, p.avatar, p.color, p.is_guest, p.bot_average, p.name AS current_name
-         FROM match_players mp LEFT JOIN players p ON p.id = mp.player_id WHERE mp.match_id = $id ORDER BY mp.position`,
+        `SELECT mp.player_id, mp.name, mp.position, p.avatar, p.color, p.is_guest, p.bot_average, p.name AS current_name, ph.updated_at AS photo_at
+         FROM match_players mp LEFT JOIN players p ON p.id = mp.player_id LEFT JOIN player_photos ph ON ph.player_id = mp.player_id
+         WHERE mp.match_id = $id ORDER BY mp.position`,
         { $id: id },
       )
       .map((r) => ({
@@ -317,6 +321,7 @@ export class MatchService extends EventEmitter {
         position: r.position,
         isGuest: r.is_guest === 1,
         botAverage: r.bot_average ?? null,
+        photo: photoUrl(r.player_id, r.photo_at),
       }));
     const events = this.db.all<EventRow>("SELECT * FROM match_events WHERE match_id = $id AND status = 'active' ORDER BY seq, created_at", { $id: id });
     const refs = players.map((p) => ({ id: p.id, name: p.name }));

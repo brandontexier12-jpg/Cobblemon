@@ -237,4 +237,18 @@ export const MIGRATIONS: Migration[] = [
       ALTER TABLE matches ADD COLUMN label TEXT;
     `,
   },
+  {
+    version: 5,
+    name: "photos de profil",
+    sql: `
+      -- Photo de profil (petite image recadrée par l'application) : stockée dans la base pour être
+      -- incluse dans les sauvegardes.
+      CREATE TABLE player_photos (
+        player_id TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+        mime TEXT NOT NULL,
+        data BLOB NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `,
+  },
 ];

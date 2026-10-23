@@ -412,6 +412,7 @@ export class CareerService {
         seasonMoney: this.seasonMoney(state),
         proTourRank: humanRank(state, "protour"),
         challengeRank: humanRank(state, "challenge"),
+        profile: this.profileLook(row.player_id),
       },
       pending: pendingView,
       run: state.run ? this.runView(state, state.run) : null,
@@ -428,6 +429,16 @@ export class CareerService {
   }
 
   /** Gains de la saison, tous tournois confondus (y compris ceux qui ne comptent pour aucun classement). */
+  /** Avatar du profil (photo, emoji, couleur), affiché dans la carte du prochain match. */
+  private profileLook(playerId: string): { avatar: string; color: string; photo: string | null } | null {
+    try {
+      const p = this.players.get(playerId);
+      return { avatar: p.avatar, color: p.color, photo: p.photo };
+    } catch {
+      return null;
+    }
+  }
+
   private seasonMoney(state: CareerState): number {
     return state.history.filter((h) => h.season === state.season && h.human).reduce((s, h) => s + h.human!.prize, 0);
   }

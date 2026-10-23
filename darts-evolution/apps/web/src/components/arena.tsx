@@ -119,7 +119,7 @@ export function VisitBar({
         <div className="hidden w-44 min-w-0 flex-col justify-center md:flex">
           <span className="text-xs uppercase tracking-wider text-ink-400">{label}</span>
           <span className="flex min-w-0 items-center gap-2">
-            {player && <PlayerAvatar avatar={player.avatar} color={player.color} size={30} />}
+            {player && <PlayerAvatar avatar={player.avatar} color={player.color} photo={player.photo} size={30} />}
             <span className="truncate font-display text-2xl font-bold">{player?.name}</span>
           </span>
           {currentFlag && <span className="mt-1 w-fit rounded bg-critical px-2 font-display text-lg font-bold tracking-widest text-white">💀 {currentFlag}</span>}
@@ -190,7 +190,7 @@ export function PlayerPanel({ player, meta, variant = "full" }: { player: Player
         aria-current={player.active ? "true" : undefined}
       >
         <header className="flex items-center gap-2">
-          {meta && <PlayerAvatar avatar={meta.avatar} color={meta.color} size={24} />}
+          {meta && <PlayerAvatar avatar={meta.avatar} color={meta.color} photo={meta.photo} size={24} />}
           <h3 className="min-w-0 flex-1 truncate text-sm font-semibold">{player.name}</h3>
           {badges}
         </header>
@@ -222,7 +222,7 @@ export function PlayerPanel({ player, meta, variant = "full" }: { player: Player
       aria-current={player.active ? "true" : undefined}
     >
       <header className="flex items-center gap-2">
-        {meta && <PlayerAvatar avatar={meta.avatar} color={meta.color} size={compact ? 28 : 36} />}
+        {meta && <PlayerAvatar avatar={meta.avatar} color={meta.color} photo={meta.photo} size={compact ? 28 : 36} />}
         <h3 className={`min-w-0 flex-1 truncate font-semibold ${compact ? "text-base" : "text-lg"} ${player.active ? "text-ink-100" : "text-ink-200"}`}>{player.name}</h3>
         {badges}
       </header>

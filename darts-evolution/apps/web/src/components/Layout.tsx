@@ -54,7 +54,7 @@ export function Layout() {
           <AutodartsPill overview={autodarts} compact />
           {activePlayer && (
             <NavLink to={`/joueurs/${activePlayer.id}`} className="flex items-center gap-2 rounded-xl px-2 py-1 hover:bg-ink-800">
-              <PlayerAvatar avatar={activePlayer.avatar} color={activePlayer.color} size={32} />
+              <PlayerAvatar avatar={activePlayer.avatar} color={activePlayer.color} photo={activePlayer.photo} size={32} />
               <span className="truncate text-sm text-ink-200">{activePlayer.name}</span>
             </NavLink>
           )}

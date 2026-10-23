@@ -1,6 +1,6 @@
 {
   "name": "darts-evolution",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "private": true,
   "description": "DARTS EVOLUTION — application de fléchettes avec intégration Autodarts, auto-hébergée (Docker / NAS TerraMaster).",
   "type": "module",
