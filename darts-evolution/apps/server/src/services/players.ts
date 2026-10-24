@@ -157,7 +157,8 @@ export class PlayerService {
    * jour depuis la carrière à chaque match.
    */
   careerBot(careerId: string, existingId: string | undefined, info: { name: string; average: number; avatar: string }): Player {
-    const average = Math.round(Math.min(170, Math.max(20, info.average)));
+    // Même plage que les bots du moteur (10 à 170) : un joueur du circuit à 15 de moyenne joue en bot 15.
+    const average = Math.round(Math.min(BOT_AVERAGES.at(-1)!, Math.max(BOT_AVERAGES[0], info.average)));
     const name = info.name.slice(0, 32);
     if (existingId && this.db.get("SELECT 1 FROM players WHERE id = $id AND career_id = $c", { $id: existingId, $c: careerId })) {
       this.db.run("UPDATE players SET name = $name, bot_average = $a, avatar = $avatar WHERE id = $id", { $id: existingId, $name: name, $a: average, $avatar: info.avatar });

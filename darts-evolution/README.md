@@ -28,6 +28,7 @@ impacts via Autodarts**.
 - [Limites connues](#limites-connues)
 - Documentation détaillée : [installation TerraMaster](docs/installation-terramaster.md) ·
   [Autodarts](docs/autodarts.md) · [modes de jeu](docs/modes-de-jeu.md) · [mode carrière](docs/carriere.md) ·
+  [applications Windows et téléphone](docs/applications.md) ·
   [statistiques](docs/statistiques.md) · [architecture et sécurité](docs/architecture.md) ·
   [dépannage](docs/depannage.md)
 
@@ -40,6 +41,13 @@ docker compose logs -f        # « DARTS EVOLUTION … prêt sur … »
 ```
 
 Ouvrir `http://IP_DU_NAS:8080`, créer les joueurs (**Joueurs**), puis **Jouer**.
+
+**Comme une vraie application** ([détails](docs/applications.md)) :
+- **Windows** : installateur `DARTS-EVOLUTION-Setup-<version>.exe` (construit par `npm run dist:win` dans
+  `apps/desktop`), une fenêtre dédiée avec icône, plein écran (F11) et écran maintenu allumé, qui se connecte
+  au serveur du NAS (adresse saisie ou recherchée sur le réseau) ;
+- **téléphone et tablette** : Paramètres → « Application sur téléphone » affiche un QR code ; une fois la page
+  ajoutée à l'écran d'accueil, DARTS EVOLUTION s'ouvre en plein écran depuis son icône.
 
 ## Fonctionnalités
 

@@ -19,3 +19,8 @@ apps/server/backups/
 dist-release/
 # Dossier release/ présent dans un paquet décompressé (mise à jour manuelle)
 /release/
+
+# Application Windows : installateur produit par « npm run dist:win » (apps/desktop)
+apps/desktop/release/
+# Icônes de l'application Windows (le .gitignore du dépôt parent exclut les dossiers « build »)
+!/apps/desktop/build/

@@ -46,6 +46,17 @@ describe("bots", () => {
     expect(r.average).toBe(30);
   });
 
+  it("un adversaire de carrière joue exactement à son niveau, même sous 20 de moyenne", async () => {
+    const app = await open();
+    const [alice] = await createPlayers(app, "Alice");
+    const career = await app.json("POST", "/api/careers", { playerId: alice, difficulty: "debutant", start: "qschool" });
+    const players = app.built.ctx.players;
+    const bot = players.careerBot(career.id, undefined, { name: "Jo Lent", average: 14.6, avatar: "🇫🇷" });
+    expect(bot.botAverage).toBe(15);
+    expect(players.careerBot(career.id, bot.id, { name: "Jo Lent", average: 7, avatar: "🇫🇷" }).botAverage).toBe(10);
+    expect(players.careerBot(career.id, bot.id, { name: "Jo Lent", average: 190, avatar: "🇫🇷" }).botAverage).toBe(170);
+  });
+
   it("joue seul son tour puis rend la main ; un humain ne peut pas lancer à sa place", async () => {
     const app = await open({ firstDartMs: 5, dartMs: 250, nextMs: 5, handOverMs: 250, undoPauseMs: 150, killerDrawMs: 0 });
     const [alice] = await createPlayers(app, "Alice");

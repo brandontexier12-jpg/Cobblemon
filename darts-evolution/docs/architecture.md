@@ -11,13 +11,17 @@ darts-evolution/
 │   │   ├── src/update/    mise à jour depuis l'application : lecture ZIP, WAV (packs de voix), versions installées,
 │   │   │                  lanceur superviseur (redémarrage, retour en arrière), fabrication du paquet
 │   │   └── test/          tests d'intégration (API, persistance, sauvegardes, Autodarts, Socket.IO)
-│   └── web/               React + Vite + Tailwind CSS (interface en français)
+│   ├── web/               React + Vite + Tailwind CSS (interface en français), application installable
+│   │                      sur téléphone (manifeste, icônes, service worker sans cache de données)
+│   └── desktop/           application Windows (Electron) : fenêtre connectée au serveur du NAS, écran de
+│                          connexion, recherche sur le réseau ; installateur NSIS (hors espaces de travail npm)
 ├── packages/
 │   ├── shared/            modèle de fléchette, contrat ScoringProvider, événements de détection
 │   ├── game-engine/       moteur de jeu pur : modes, règles, checkout, vues (aucune E/S)
 │   ├── statistics/        formules statistiques, séries, records, badges, objectifs
 │   └── autodarts-adapter/ client de l'API locale Autodarts, suivi d'instantanés, simulateur, capture
 ├── docker/                contrôle de santé, compose « image seule »
+├── scripts/               génération des icônes à partir du logo
 ├── docs/                  documentation (français)
 ├── Dockerfile, docker-compose.yml, .env.example, .dockerignore
 └── data/, backups/        (exécution : jamais versionnés)

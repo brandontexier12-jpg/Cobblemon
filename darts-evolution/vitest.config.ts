@@ -8,6 +8,7 @@ export default defineConfig({
       "apps/server/src/**/*.test.ts",
       "apps/server/test/**/*.test.ts",
       "apps/web/src/**/*.test.ts",
+      "apps/desktop/src/**/*.test.ts",
       "tests/**/*.test.ts",
     ],
     environment: "node",

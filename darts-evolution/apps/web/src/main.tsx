@@ -9,6 +9,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Layout, MorePage } from "./components/Layout";
 import { EmptyState, UiProvider } from "./components/ui";
 import { AppStateProvider } from "./lib/app-state";
+import { setupInstall } from "./lib/install";
 import { AutodartsPage } from "./pages/Autodarts";
 import { CompetitionDetailPage, CompetitionsPage } from "./pages/Competitions";
 import { CareerPage, CareersPage } from "./pages/Career";
@@ -21,6 +22,8 @@ import { RoomPage } from "./pages/Room";
 import { SettingsPage } from "./pages/Settings";
 import { StatsPage } from "./pages/Stats";
 import { TrainingPage } from "./pages/Training";
+
+setupInstall();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

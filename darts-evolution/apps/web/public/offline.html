@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0b0c" />
+    <title>DARTS EVOLUTION — serveur injoignable</title>
+    <style>
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b0b0c; color: #f5f5f4; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+      main { max-width: 26rem; padding: 2rem 1.25rem; text-align: center; }
+      img { width: 72px; height: 72px; }
+      h1 { font-size: 1.4rem; margin: 1rem 0 0.5rem; }
+      p { color: #a8a8b0; line-height: 1.5; margin: 0.5rem 0; }
+      button { margin-top: 1.25rem; padding: 0.8rem 1.6rem; border: 0; border-radius: 0.75rem; background: #ff6b1a; color: #111; font-size: 1rem; font-weight: 600; cursor: pointer; }
+      small { display: block; margin-top: 1rem; color: #6f6f78; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icons/icon-192.png" alt="" />
+      <h1>Serveur injoignable</h1>
+      <p>DARTS EVOLUTION ne répond pas. Vérifiez que cet appareil est connecté au wifi de la maison et que le serveur (NAS) est allumé.</p>
+      <p>Après une mise à jour, le serveur redémarre en une minute environ.</p>
+      <button type="button" id="retry">Réessayer</button>
+      <small>Nouvel essai automatique toutes les 10 secondes.</small>
+    </main>
+    <script src="/offline.js"></script>
+  </body>
+</html>

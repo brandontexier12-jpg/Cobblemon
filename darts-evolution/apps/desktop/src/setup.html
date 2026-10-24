@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'" />
+    <title>DARTS EVOLUTION</title>
+    <link rel="stylesheet" href="setup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="icon.png" alt="" width="72" height="72" />
+        <div>
+          <h1>DARTS EVOLUTION</h1>
+          <p class="sub">Application Windows</p>
+        </div>
+      </header>
+
+      <section id="offline" hidden>
+        <h2>Serveur injoignable</h2>
+        <p>Le serveur <strong class="mono" data-server></strong> ne répond pas. Vérifiez que le NAS est allumé et que ce PC est connecté au même réseau.</p>
+        <p class="hint">Après une mise à jour, le serveur redémarre en une minute environ.</p>
+        <div class="row">
+          <button type="button" class="primary" id="retry">Réessayer maintenant</button>
+          <button type="button" id="change">Changer de serveur</button>
+        </div>
+        <p class="hint" id="countdown"></p>
+      </section>
+
+      <section id="setup" hidden>
+        <h2 id="setup-title">Connexion à votre serveur</h2>
+        <p>
+          Indiquez l'adresse de votre serveur DARTS EVOLUTION (NAS) : celle que vous tapez dans le navigateur pour ouvrir l'application. Elle est aussi
+          affichée dans Paramètres → « Application sur téléphone », sous le QR code.
+        </p>
+        <form id="form" class="row">
+          <input id="address" type="text" placeholder="Ex. 192.168.1.50:8080" autocomplete="off" spellcheck="false" maxlength="300" required />
+          <button type="submit" class="primary" id="connect">Se connecter</button>
+        </form>
+        <p class="error" id="error" role="alert"></p>
+        <div class="row">
+          <button type="button" id="scan">Rechercher sur le réseau</button>
+          <button type="button" id="cancel" hidden>Annuler</button>
+        </div>
+        <ul id="found"></ul>
+        <p class="hint">Joueurs, parties, statistiques et carrière restent enregistrés sur le serveur : ce sont les mêmes sur le PC, le téléphone et la tablette.</p>
+      </section>
+    </main>
+    <footer id="version"></footer>
+    <script src="setup.js"></script>
+  </body>
+</html>

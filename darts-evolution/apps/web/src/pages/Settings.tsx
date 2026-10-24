@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Badge, Button, Card, Field, inputClass, PageHeader, Segmented, Stepper, useUi } from "../components/ui";
+import { InstallAppCard } from "../components/InstallAppCard";
 import { UpdateCard } from "../components/UpdateCard";
 import { VoicePacksCard } from "../components/VoicePacksCard";
 import { api } from "../lib/api";
@@ -243,6 +244,8 @@ export function SettingsPage() {
       <VoicePacksCard canEdit={auth.isAdmin || !auth.adminConfigured} />
 
       <UpdateCard isAdmin={auth.isAdmin} />
+
+      <InstallAppCard />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Exports">

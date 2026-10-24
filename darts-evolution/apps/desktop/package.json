@@ -1,0 +1,23 @@
+{
+  "name": "@darts-evolution/desktop",
+  "productName": "DARTS EVOLUTION",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Application Windows DARTS EVOLUTION : fenêtre dédiée connectée au serveur DARTS EVOLUTION du NAS.",
+  "author": "DARTS EVOLUTION",
+  "license": "UNLICENSED",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc -p .",
+    "start": "node build.mjs && electron .",
+    "dist:win": "node build.mjs && node scripts/dist-win.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "electron": "44.7.0",
+    "electron-builder": "26.17.0",
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3"
+  }
+}

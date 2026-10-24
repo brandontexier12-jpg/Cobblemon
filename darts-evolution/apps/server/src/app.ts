@@ -208,7 +208,16 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
   const webDist = config.webDistPath ?? path.resolve(process.cwd(), "apps/web/dist");
   const hasWeb = existsSync(path.join(webDist, "index.html"));
   if (hasWeb) {
-    await app.register(fastifyStatic, { root: webDist, maxAge: "1h" });
+    // Service worker, manifeste et page hors ligne de l'application installée : toujours revalidés,
+    // pour qu'une mise à jour du serveur soit vue tout de suite par les téléphones.
+    const alwaysFresh = new Set(["sw.js", "manifest.webmanifest", "offline.html", "offline.js"]);
+    await app.register(fastifyStatic, {
+      root: webDist,
+      maxAge: "1h",
+      setHeaders: (reply, filePath) => {
+        if (alwaysFresh.has(path.basename(filePath))) reply.header("Cache-Control", "no-cache");
+      },
+    });
   }
   app.setNotFoundHandler((request, reply) => {
     if (request.method === "GET" && !request.url.startsWith("/api/") && !request.url.startsWith("/socket.io") && hasWeb) {

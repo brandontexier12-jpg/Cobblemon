@@ -1,10 +1,27 @@
 {
+  "id": "/",
   "name": "DARTS EVOLUTION",
   "short_name": "Darts Evo",
+  "description": "Scoring, entraînements, statistiques, carrière et compétitions de fléchettes, avec détection Autodarts.",
   "lang": "fr",
+  "dir": "ltr",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#0b0b0c",
   "theme_color": "#0b0b0c",
-  "icons": [{ "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+  "categories": ["sports", "games"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Jouer", "url": "/jouer", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Entraînement", "url": "/entrainement", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Carrière", "url": "/carriere", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Statistiques", "url": "/statistiques", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
 }
