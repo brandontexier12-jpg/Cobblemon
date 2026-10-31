@@ -60,6 +60,7 @@ export type DiagnosticCode =
   | "incompatible"
   | "detection_stopped"
   | "no_throw_data"
+  | "unreadable_throws"
   | "unknown";
 
 export interface Diagnostic {

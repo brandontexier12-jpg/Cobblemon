@@ -15,6 +15,13 @@
  * - POST /api/reset     : vide la visite en cours (« Manual reset »).
  * - PUT  /api/start, /api/stop : démarre / arrête la détection.
  * Aucune authentification n'est requise en local (clé API vide dans la configuration observée).
+ *
+ * Format « à plat » (cible réelle, 2026-10-29, projet DartLab/DartsApp, docs/autodarts-protokoll.md) :
+ * après une mise à jour d'Autodarts, chaque lancer arrive avec des champs à plat (`segmentName`,
+ * `segmentNumber`, `multiplier`, `bed`, `coordsX`, `coordsY`, plus `failed` et `method`), les
+ * événements et statuts en camelCase (`throwDetected`, `takeoutStarted`, `takeoutInProgress`,
+ * `takeoutFinished`, `throw`, `takeout`), sans `numThrows`, et `throws: []` quand la cible est vide.
+ * Les deux formats sont acceptés : ils sont ramenés à la forme classique dès la lecture.
  */
 import { BULL, dartScore, isValidDart, type Dart, type Multiplier } from "@darts-evolution/shared";
 import { z } from "zod";
@@ -74,6 +81,37 @@ export const EnvelopeSchema = z.object({ type: z.string().max(64), data: z.unkno
 
 export type ParseResult<T> = { ok: true; value: T; invalidThrows: string[] } | { ok: false; reason: string };
 
+/**
+ * Lancer au format « à plat » → forme classique `{segment, coords}`. Un lancer déjà classique, ou
+ * qui n'a aucun champ de segment, est rendu tel quel (sa validation dira s'il est lisible).
+ */
+export function unflattenThrow(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const t = raw as Record<string, unknown>;
+  if ("segment" in t || !("segmentNumber" in t || "segmentName" in t)) return raw;
+  const { segmentName, segmentNumber, multiplier, bed, coordsX, coordsY, ...rest } = t;
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  return {
+    ...rest,
+    segment: { name: segmentName, number: segmentNumber, multiplier, bed },
+    coords: finite(coordsX) && finite(coordsY) ? { x: coordsX, y: coordsY } : undefined,
+  };
+}
+
+/**
+ * Événement ou statut ramené à son libellé classique : « takeoutInProgress » et « takeout_finished »
+ * deviennent « Takeout in progress » et « Takeout finished » ; « Throw detected » reste inchangé.
+ */
+export function boardLabel(raw: string): string {
+  if (!raw || /\s/.test(raw)) return raw;
+  const words = raw
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .trim()
+    .toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 export function parseBoardState(raw: unknown): ParseResult<BoardSnapshot> {
   const parsed = BoardStateSchema.safeParse(raw);
   if (!parsed.success) {
@@ -83,7 +121,7 @@ export function parseBoardState(raw: unknown): ParseResult<BoardSnapshot> {
   const s = parsed.data;
   const invalidThrows: string[] = [];
   const throws = (s.throws ?? []).map((t, i) => {
-    const r = BoardThrowSchema.safeParse(t);
+    const r = BoardThrowSchema.safeParse(unflattenThrow(t));
     if (!r.success) {
       invalidThrows.push(`lancer ${i + 1} illisible`);
       return null;
@@ -102,8 +140,8 @@ export function parseBoardState(raw: unknown): ParseResult<BoardSnapshot> {
     value: {
       connected: s.connected ?? null,
       running: s.running,
-      status: s.status ?? "",
-      event: s.event ?? "",
+      status: boardLabel(s.status ?? ""),
+      event: boardLabel(s.event ?? ""),
       numThrows,
       throws,
       missingThrowData: numThrows > 0 && throws.length === 0,

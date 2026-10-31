@@ -15,5 +15,12 @@ des formes publiquement documentées :
   (bull intérieur : `"name":"Bull","number":25,"multiplier":2,"bed":"Double"` — forme non observée
   par n4-darts en 2.0.2).
 
+- **Format « à plat »** (`bm-format-plat-2026-10.json`) : structure enregistrée sur une cible réelle le
+  2026-10-29 par le projet DartLab (https://github.com/MrTeaMusic/DartsApp, pull request 56) après une
+  mise à jour d'Autodarts — lancers `{bed, bouncer, coordsX, coordsY, failed, method, multiplier,
+  segmentName, segmentNumber}`, événements `throwDetected` / `takeoutStarted` / `takeoutFinished`,
+  statuts `throw` / `takeout` / `takeoutInProgress`, pas de `numThrows`, `throws: []` cible vide. Les
+  valeurs des fléchettes sont propres à ce fichier (l'enregistrement d'origine n'est pas recopié).
+
 Un test sur le matériel réel reste à effectuer : voir `docs/autodarts.md`, section « Test matériel ».
 Pour enregistrer un vrai flux : `npm run capture -w @darts-evolution/autodarts-adapter -- --host IP`.

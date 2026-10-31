@@ -167,6 +167,39 @@ describe("AutodartsScoringProvider (contre le simulateur)", () => {
     expect(throws).toHaveLength(0); // jamais d'impact inventé
   });
 
+  it("avertit clairement quand toutes les fléchettes arrivent dans un format inconnu, puis lève l'avertissement", async () => {
+    const { sim, provider, throws } = await setup();
+    await provider.connect();
+    await connected(provider);
+    // Forme hypothétique d'une future version : aucun champ de segment reconnu.
+    sim.sendRaw(JSON.stringify({ type: "state", data: { running: true, event: "dartHit", status: "throw", throws: [{ field: "T20", points: 60 }] } }));
+    await vi.waitFor(async () => expect((await provider.getStatus()).lastError?.code).toBe("unreadable_throws"));
+    const status = await provider.getStatus();
+    expect(status.warnings.filter((w) => w.startsWith("[format]"))).toHaveLength(1);
+    expect(throws).toHaveLength(0); // jamais d'impact inventé
+    // Retour d'une fléchette lisible : l'avertissement disparaît.
+    sim.sendRaw(JSON.stringify({ type: "state", data: { running: true, event: "throwDetected", status: "throw", throws: [{ segmentName: "T20", segmentNumber: 20, multiplier: 3, bed: "Triple" }] } }));
+    await vi.waitFor(() => expect(throws.map((t) => t.score)).toEqual([60]));
+    const after = await provider.getStatus();
+    expect(after.warnings.some((w) => w.startsWith("[format]"))).toBe(false);
+    expect(after.lastError).toBeNull();
+  });
+
+  it("format à plat (Autodarts fin octobre 2026) : impacts, retrait et relecture HTTP", async () => {
+    const { sim, provider, throws, events } = await setup({ format: "flat" });
+    await provider.connect();
+    await connected(provider);
+    sim.throwDart("T20");
+    sim.throwDart("D16");
+    sim.throwDart("BULL");
+    await vi.waitFor(() => expect(throws.map((t) => t.score)).toEqual([60, 32, 50]));
+    expect(throws[0]?.coords?.y).toBeCloseTo(0.6, 3);
+    sim.takeout();
+    await vi.waitFor(() => expect(events.filter((e) => e.kind === "takeout-finished")).toHaveLength(1));
+    expect(events.some((e) => e.kind === "takeout-started")).toBe(true);
+    expect((await provider.getStatus()).warnings).toEqual([]);
+  });
+
   it("signale l'arrêt de la détection", async () => {
     const { sim, provider, events } = await setup();
     await provider.connect();

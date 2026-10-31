@@ -65,6 +65,43 @@ Cycle d'une visite observé : `Throw detected`/`Throw` (1, 2 fléchettes) → `T
 (3e fléchette) → `Takeout started`/`Takeout in progress` → `Takeout finished`/`Throw` (`numThrows` 0,
 `throws` absent). Un retrait peut avoir lieu après 1 ou 2 fléchettes.
 
+### Format « à plat » (mise à jour d'Autodarts, fin octobre 2026)
+
+Après une mise à jour d'Autodarts, le Board Manager envoie les lancers sous une autre forme. Elle a été
+enregistrée sur une cible réelle le **2026-10-29** par le projet DartLab
+(https://github.com/MrTeaMusic/DartsApp, `docs/autodarts-protokoll.md`, pull request 56) ; la version du
+Board Manager n'y est pas indiquée. Même WebSocket `/api/events`, mêmes messages `{"type":"state"}`, mais :
+
+```json
+{"connected":true,"event":"throwDetected","running":true,"status":"throw",
+ "throws":[{"bed":"SingleOuter","bouncer":false,"coordsX":-0.348,"coordsY":0.645,"failed":false,
+            "method":"UnanimousCam","multiplier":1,"segmentName":"S12","segmentNumber":12}]}
+```
+
+| | Format classique (≤ 2.0.2) | Format à plat (2026-10-29) |
+|---|---|---|
+| Lancer | `segment: {name, number, bed, multiplier}`, `coords: {x, y}` | `segmentName`, `segmentNumber`, `bed`, `multiplier`, `coordsX`, `coordsY`, plus `failed`, `method` |
+| Événements | `Throw detected`, `Takeout started`, `Takeout finished` | `throwDetected`, `takeoutStarted`, `takeoutFinished` |
+| Statuts | `Throw`, `Takeout`, `Takeout in progress` | `throw`, `takeout`, `takeoutInProgress` |
+| Nombre de fléchettes | `numThrows` | absent |
+| Cible vide | `throws` absent | `throws: []` |
+
+Après un retrait, `event` reste `takeoutFinished` jusqu'au lancer suivant : la première fléchette de la
+visite suivante arrive encore avec cet événement (elle est bien comptée).
+
+**Traitement** : les deux formats sont acceptés. Dès la lecture, un lancer à plat est ramené à la forme
+classique et les noms en camelCase ou snake_case (`takeoutInProgress`, `takeout_finished`) à leur libellé
+classique (`Takeout in progress`, `Takeout finished`) ; le reste du traitement est inchangé. Vérifié en
+rejouant l'enregistrement réel du 2026-10-29 (6 fléchettes, 2 retraits, toutes lues avec leur zone et leur
+position), et par les tests (`bm-format-plat-2026-10.json`, partie complète contre le simulateur en
+`--format flat`). **Non observés à ce jour dans ce format** : raté, bull, 25, double, rebond et
+correction faite par la cible ; ils suivent les règles du format classique. Les champs `failed` et
+`method` sont conservés mais pas interprétés (leur signification n'est pas documentée).
+
+Si un jour toutes les fléchettes reçues sont illisibles (nouveau format inconnu), la page Autodarts
+l'affiche en clair (« Le Board Manager envoie des fléchettes dans un format que DARTS EVOLUTION ne sait pas
+lire ») au lieu de rester silencieuse ; le détail figure dans le journal de diagnostic.
+
 ## 3. Traitement dans DARTS EVOLUTION
 
 ```

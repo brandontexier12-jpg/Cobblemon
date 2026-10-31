@@ -24,6 +24,11 @@ export interface SimulatorOptions {
   cameras?: number;
   /** Durée simulée d'une calibration (ms). */
   calibrationMs?: number;
+  /**
+   * Format des messages : « classique » (2.0.2 : `segment`/`coords`, « Throw detected », `numThrows`)
+   * ou « à plat » (observé le 2026-10-29 : `segmentName`/`coordsX`, « throwDetected », `throws: []`).
+   */
+  format?: "nested" | "flat";
 }
 
 interface SimThrow {
@@ -160,10 +165,39 @@ export class BoardManagerSimulator {
     return s;
   }
 
+  /** État tel qu'envoyé par le Board Manager, dans le format choisi. */
+  private wire(state: SimState): unknown {
+    if (this.options.format !== "flat") return state;
+    const camel = (label: string) => label.toLowerCase().replace(/\s+(\w)/g, (_, c: string) => c.toUpperCase());
+    const { numThrows: _numThrows, throws, ...rest } = state;
+    // Cible vide : `throws: []`. Liste retirée d'un message (détail non transmis) : clé absente.
+    const list = throws ?? (this.state.throws?.length ? undefined : []);
+    return {
+      ...rest,
+      event: camel(state.event),
+      status: camel(state.status),
+      ...(this.options.omitThrowData || !list
+        ? {}
+        : {
+            throws: list.map((t) => ({
+              bed: t.segment.bed,
+              bouncer: t.bouncer,
+              coordsX: t.coords.x,
+              coordsY: t.coords.y,
+              failed: false,
+              method: "UnanimousCam",
+              multiplier: t.segment.multiplier,
+              segmentName: t.segment.name,
+              segmentNumber: t.segment.number,
+            })),
+          }),
+    };
+  }
+
   private broadcast(adjust?: (state: SimState) => void): void {
     const data = this.publicState();
     adjust?.(data);
-    this.lastMessage = JSON.stringify({ type: "state", data });
+    this.lastMessage = JSON.stringify({ type: "state", data: this.wire(data) });
     for (const ws of this.sockets) ws.send(this.lastMessage);
   }
 
@@ -273,7 +307,7 @@ export class BoardManagerSimulator {
     const key = `${req.method} ${req.url}`;
     switch (key) {
       case "GET /api/state":
-        return this.send(res, 200, this.publicState());
+        return this.send(res, 200, this.wire(this.publicState()));
       case "GET /api/version":
         return this.send(res, 200, this.version, "text/plain");
       case "HEAD /api/ping":

@@ -199,7 +199,7 @@ export class AutodartsScoringProvider implements ScoringProvider {
     this.status.boardEvent = snapshot.event || null;
     this.status.running = snapshot.running;
     this.status.lastMessageAt = new Date().toISOString();
-    const warnings = this.status.warnings.filter((w) => !w.startsWith("[détection]") && !w.startsWith("[données]"));
+    let warnings = this.status.warnings.filter((w) => !w.startsWith("[détection]") && !w.startsWith("[données]"));
     if (!snapshot.running || LIFECYCLE_STATUSES.includes(snapshot.status.toLowerCase())) {
       warnings.push(`[détection] ${makeDiagnostic("detection_stopped").message} Statut : ${snapshot.status || "inconnu"}.`);
     }
@@ -207,6 +207,18 @@ export class AutodartsScoringProvider implements ScoringProvider {
       const diag = makeDiagnostic("no_throw_data");
       warnings.push(`[données] ${diag.message} ${diag.hint}`);
       this.status.lastError = diag;
+    }
+    // Fléchettes présentes mais toutes illisibles : format inconnu (mise à jour d'Autodarts ?).
+    // L'avertissement reste affiché jusqu'à la prochaine fléchette lisible.
+    const readable = snapshot.throws.filter((t) => t !== null).length;
+    if (readable > 0) {
+      warnings = warnings.filter((w) => !w.startsWith("[format]"));
+      if (this.status.lastError?.code === "unreadable_throws") this.status.lastError = null;
+    } else if (snapshot.throws.length > 0 && !warnings.some((w) => w.startsWith("[format]"))) {
+      const diag = makeDiagnostic("unreadable_throws");
+      warnings.push(`[format] ${diag.message} ${diag.hint}`);
+      this.status.lastError = diag;
+      this.log.warn("Fléchettes illisibles : format du Board Manager inconnu.", { status: snapshot.status, event: snapshot.event });
     }
     this.status.warnings = warnings;
   }

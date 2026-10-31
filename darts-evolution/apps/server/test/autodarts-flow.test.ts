@@ -8,8 +8,8 @@ afterEach(async () => {
   while (cleanups.length) await cleanups.pop()!();
 });
 
-async function setup(options: Parameters<typeof startTestApp>[2] = {}) {
-  const sim = new BoardManagerSimulator({ generation: 2 });
+async function setup(options: Parameters<typeof startTestApp>[2] = {}, format: "nested" | "flat" = "nested") {
+  const sim = new BoardManagerSimulator({ generation: 2, format });
   await sim.start();
   const app = await startTestApp({}, undefined, options);
   cleanups.push(() => removeDir(app.dir));
@@ -24,8 +24,9 @@ async function setup(options: Parameters<typeof startTestApp>[2] = {}) {
 const view = async (app: TestApp, id: string) => (await app.json("GET", `/api/matches/${id}`)).view;
 
 describe("intégration Autodarts de bout en bout (simulateur de Board Manager)", () => {
-  it("transmet les impacts au moteur, ignore le retrait comme impact et passe au joueur suivant", async () => {
-    const { sim, app } = await setup();
+  // « flat » : format à plat envoyé par le Board Manager après une mise à jour d'Autodarts (fin octobre 2026).
+  it.each(["nested", "flat"] as const)("transmet les impacts au moteur, ignore le retrait comme impact et passe au joueur suivant (format %s)", async (format) => {
+    const { sim, app } = await setup({}, format);
     const [a, b] = await createPlayers(app, "Alice", "Bob");
     const { match } = await app.json("POST", "/api/matches", { mode: "x01", options: { startScore: 501 }, playerIds: [a, b], inputMode: "autodarts" });
     expect((await app.json("GET", "/api/autodarts")).boundMatchId).toBe(match.id);

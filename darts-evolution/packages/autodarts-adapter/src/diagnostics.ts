@@ -52,6 +52,10 @@ const HINTS: Record<DiagnosticCode, { message: string; hint: string }> = {
     message: "Le Board Manager signale des fléchettes sans en transmettre le détail.",
     hint: "Comportement signalé sur certaines installations Autodarts 2.x : les impacts ne peuvent pas être lus localement. Utilisez la saisie manuelle.",
   },
+  unreadable_throws: {
+    message: "Le Board Manager envoie des fléchettes dans un format que DARTS EVOLUTION ne sait pas lire.",
+    hint: "Autodarts a probablement été mis à jour. Saisissez les fléchettes à la main en attendant, téléchargez le journal de diagnostic (page Autodarts) et vérifiez les mises à jour de DARTS EVOLUTION.",
+  },
   unknown: {
     message: "Erreur inattendue de communication avec Autodarts.",
     hint: "Consultez les journaux du conteneur pour plus de détails.",

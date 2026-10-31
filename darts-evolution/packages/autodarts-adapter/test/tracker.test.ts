@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { ScoringEvent } from "@darts-evolution/shared";
 import { describe, expect, it } from "vitest";
-import { EnvelopeSchema, normalizeSegment, parseBoardState, parseVersion, type BoardSnapshot } from "../src/protocol.js";
+import { dartScore } from "@darts-evolution/shared";
+import { EnvelopeSchema, normalizeSegment, parseBoardState, parseVersion, throwToDart, type BoardSnapshot } from "../src/protocol.js";
 import { simThrow } from "../src/simulator.js";
 import { BoardTracker } from "../src/tracker.js";
 
@@ -99,6 +100,18 @@ describe("suivi des instantanés (flux de référence)", () => {
     const events = replayFixture("bm-1.x-visit.json");
     expect(throws(events).map((t) => t.score)).toEqual([40, 57, 5]);
     expect(kinds(events).filter((k) => k === "takeout-finished")).toHaveLength(1);
+  });
+
+  it("format « à plat » apparu fin octobre 2026 : champs segmentName/coordsX, événements throwDetected/takeoutFinished", () => {
+    const events = replayFixture("bm-format-plat-2026-10.json");
+    const t = throws(events);
+    expect(t.map((x) => x.segmentName)).toEqual(["S20", "T20", "S1", "S19", "T19"]);
+    expect(t.map((x) => x.score)).toEqual([20, 60, 1, 19, 57]);
+    expect(t[2]?.bed).toBe("SingleInner");
+    expect(t[1]?.coords).toEqual({ x: -0.0188, y: 0.6044 });
+    expect(kinds(events)).toEqual(["throw", "throw", "throw", "takeout-started", "takeout-finished", "throw", "throw"]);
+    // La première fléchette après le retrait arrive encore avec l'événement « takeoutFinished » : elle compte.
+    expect(t[3]).toMatchObject({ boardVisit: 1, segmentName: "S19" });
   });
 
   it("bull, rebond et retrait anticipé", () => {
@@ -224,6 +237,35 @@ describe("déduplication, corrections, resets et reconnexions", () => {
     tracker.baseline(snapshot(state([])));
     const events = tracker.live((parsed as { value: BoardSnapshot }).value);
     expect(throws(events).map((t) => t.score)).toEqual([5]);
+  });
+
+  it("format « à plat » : raté, bull et noms d'événements en camelCase ou snake_case", () => {
+    const flat = (segmentName: string, segmentNumber: number, multiplier: number, bed: string) => ({ segmentName, segmentNumber, multiplier, bed, coordsX: 0.1, coordsY: 0.2, bouncer: false });
+    const r = parseBoardState({
+      connected: true,
+      running: true,
+      event: "throwDetected",
+      status: "takeoutInProgress",
+      throws: [flat("M12", 12, 0, "Outside"), flat("Bull", 25, 2, "Double"), flat("25", 25, 1, "Single"), flat("D16", 16, 2, "Double")],
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.invalidThrows).toEqual([]);
+    expect(r.value.throws.map((x) => x && dartScore(throwToDart(x)))).toEqual([0, 50, 25, 32]);
+    expect(r.value.throws[0]?.coords).toEqual({ x: 0.1, y: 0.2 });
+    expect(r.value.event).toBe("Throw detected");
+    expect(r.value.status).toBe("Takeout in progress");
+    expect(r.value.numThrows).toBe(4);
+    for (const [raw, label] of [["takeout_finished", "Takeout finished"], ["manualReset", "Manual reset"], ["takeout", "Takeout"], ["Throw detected", "Throw detected"], ["stopped", "Stopped"]]) {
+      const parsed = parseBoardState({ running: true, event: raw });
+      expect(parsed.ok && parsed.value.event).toBe(label);
+    }
+  });
+
+  it("format « à plat » : une fléchette sans numéro de segment reste illisible, sans bloquer les autres", () => {
+    const r = parseBoardState({ running: true, event: "throwDetected", throws: [{ segmentName: "S20", bed: "SingleOuter" }, { segmentName: "T20", segmentNumber: 20, multiplier: 3, bed: "Triple" }] });
+    expect(r.ok && r.value.throws.map((x) => (x ? dartScore(throwToDart(x)) : null))).toEqual([null, 60]);
+    expect(r.ok && r.invalidThrows).toEqual(["lancer 1 illisible"]);
   });
 
   it("rejette un état invalide", () => {
